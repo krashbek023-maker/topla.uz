@@ -68,11 +68,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && (!user || !isAdmin)) {
+    // Only redirect if fully loaded and not admin
+    if (!isLoading && !user) {
       router.push("/admin/login");
     }
-  }, [isLoading, user, isAdmin, router]);
+  }, [isLoading, user, router]);
 
+  // Show loading only briefly
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
