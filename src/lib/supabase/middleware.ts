@@ -46,21 +46,37 @@ export async function updateSession(request: NextRequest) {
 
 
   // Protected routes logic
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-    // Optional: Check if user role is admin
-    // const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    // if (profile?.role !== 'admin') return NextResponse.redirect(new URL('/', request.url))
-  }
+  const pathname = request.nextUrl.pathname;
 
-  if (request.nextUrl.pathname.startsWith('/vendor')) {
-    // Allow access to login and register pages
-    if (request.nextUrl.pathname.startsWith('/vendor/login') || request.nextUrl.pathname.startsWith('/vendor/register')) {
+  // Admin routes protection
+  if (pathname.startsWith('/admin')) {
+    // Allow access to admin login page
+    if (pathname === '/admin/login') {
+      // If already logged in, redirect to dashboard
+      if (user) {
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+      }
       return response
     }
 
+    // All other admin routes require authentication
+    if (!user) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+  }
+
+  // Vendor routes protection
+  if (pathname.startsWith('/vendor')) {
+    // Allow access to login and register pages
+    if (pathname === '/vendor/login' || pathname === '/vendor/register') {
+      // If already logged in, redirect to dashboard
+      if (user) {
+        return NextResponse.redirect(new URL('/vendor/dashboard', request.url))
+      }
+      return response
+    }
+
+    // All other vendor routes require authentication
     if (!user) {
       return NextResponse.redirect(new URL('/vendor/login', request.url))
     }
