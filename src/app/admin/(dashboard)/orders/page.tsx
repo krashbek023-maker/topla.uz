@@ -91,16 +91,16 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Buyurtmalar</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Buyurtmalar</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Barcha buyurtmalarni boshqaring
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Jami</CardTitle>
@@ -149,33 +149,71 @@ export default function AdminOrdersPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <CardTitle>Buyurtmalar ro'yxati</CardTitle>
+              <CardTitle className="text-lg">Buyurtmalar ro'yxati</CardTitle>
               <CardDescription>Buyurtmalar statusini kuzating</CardDescription>
             </div>
             <Input
               placeholder="Qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-72"
+              className="w-full sm:w-72"
             />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2 sm:px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="all">Barchasi ({stats.total})</TabsTrigger>
-              <TabsTrigger value="pending">Kutilmoqda ({stats.pending})</TabsTrigger>
-              <TabsTrigger value="processing">Jarayonda ({stats.processing})</TabsTrigger>
-              <TabsTrigger value="shipped">Yo'lda ({stats.shipped})</TabsTrigger>
-              <TabsTrigger value="delivered">Yetkazildi ({stats.delivered})</TabsTrigger>
-              <TabsTrigger value="cancelled">Bekor ({stats.cancelled})</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto pb-2">
+              <TabsList className="inline-flex w-max sm:w-auto">
+                <TabsTrigger value="all" className="text-xs sm:text-sm">Barchasi</TabsTrigger>
+                <TabsTrigger value="pending" className="text-xs sm:text-sm">Kutilmoqda</TabsTrigger>
+                <TabsTrigger value="processing" className="text-xs sm:text-sm">Jarayonda</TabsTrigger>
+                <TabsTrigger value="delivered" className="text-xs sm:text-sm">Yetkazildi</TabsTrigger>
+                <TabsTrigger value="cancelled" className="text-xs sm:text-sm">Bekor</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value={activeTab} className="mt-4">
-              <Table>
+              {/* Mobile Card View */}
+              <div className="block sm:hidden space-y-3">
+                {filteredOrders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Package className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Buyurtmalar topilmadi</p>
+                  </div>
+                ) : (
+                  filteredOrders.map((order) => (
+                    <div key={order.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-sm font-medium">{order.order_number || order.id.slice(0, 8)}</span>
+                        <Badge variant={statusConfig[order.status]?.color || 'secondary'} className="text-xs">
+                          {statusConfig[order.status]?.label || order.status}
+                        </Badge>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">{order.customer?.full_name || "Noma'lum"}</span>
+                        <span className="text-muted-foreground"> • {order.shop?.name || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold">{formatPrice(order.total_amount)}</span>
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
+                          setSelectedOrder(order)
+                          setNewStatus(order.status)
+                          setStatusDialogOpen(true)
+                        }}>Status</Button>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(order.created_at).toLocaleDateString('uz-UZ')} • {order.payment_method || 'Naqd'}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Buyurtma ID</TableHead>
@@ -235,6 +273,7 @@ export default function AdminOrdersPage() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

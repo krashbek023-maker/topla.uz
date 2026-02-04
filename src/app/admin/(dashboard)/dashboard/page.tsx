@@ -149,14 +149,14 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Dashboard</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Xush kelibsiz! Bu yerda asosiy statistikani ko'rishingiz mumkin.
         </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {statCards.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -229,9 +229,9 @@ export default function AdminDashboard() {
       {/* Recent Orders Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <CardTitle>So'nggi buyurtmalar</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">So'nggi buyurtmalar</CardTitle>
               <CardDescription>Oxirgi 24 soatdagi buyurtmalar</CardDescription>
             </div>
             <Button variant="outline" size="sm" asChild>
@@ -239,43 +239,69 @@ export default function AdminDashboard() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Buyurtma ID</TableHead>
-                <TableHead>Mijoz</TableHead>
-                <TableHead>Do'kon</TableHead>
-                <TableHead>Summa</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Sana</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentOrders.length === 0 ? (
+        <CardContent className="p-0 sm:p-6">
+          {/* Mobile Card View */}
+          <div className="block sm:hidden space-y-3 p-4">
+            {recentOrders.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Hozircha buyurtmalar yo'q</p>
+            ) : (
+              recentOrders.map((order) => (
+                <div key={order.id} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{order.order_number}</span>
+                    <Badge variant={statusColors[order.status] || "default"} className="text-xs">
+                      {statusLabels[order.status] || order.status}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">{order.customer}</div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{order.shop}</span>
+                    <span className="font-medium">{formatPrice(order.total)}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{order.date}</div>
+                </div>
+              ))
+            )}
+          </div>
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
-                    Hozircha buyurtmalar yo'q
-                  </TableCell>
+                  <TableHead>Buyurtma ID</TableHead>
+                  <TableHead>Mijoz</TableHead>
+                  <TableHead>Do'kon</TableHead>
+                  <TableHead>Summa</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Sana</TableHead>
                 </TableRow>
-              ) : (
-                recentOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.order_number}</TableCell>
-                    <TableCell>{order.customer}</TableCell>
-                    <TableCell>{order.shop}</TableCell>
-                    <TableCell>{formatPrice(order.total)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusColors[order.status] || "default"}>
-                        {statusLabels[order.status] || order.status}
-                      </Badge>
+              </TableHeader>
+              <TableBody>
+                {recentOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                      Hozircha buyurtmalar yo'q
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{order.date}</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  recentOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.order_number}</TableCell>
+                      <TableCell>{order.customer}</TableCell>
+                      <TableCell>{order.shop}</TableCell>
+                      <TableCell>{formatPrice(order.total)}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusColors[order.status] || "default"}>
+                          {statusLabels[order.status] || order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{order.date}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       
