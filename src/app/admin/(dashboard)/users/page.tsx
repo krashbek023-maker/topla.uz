@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,89 +8,103 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-
-// Mock data
-const users = [
-  {
-    id: '1',
-    name: 'Abdulloh Karimov',
-    email: 'abdulloh@email.com',
-    phone: '+998 90 123 45 67',
-    role: 'user',
-    orders: 12,
-    totalSpent: 45600000,
-    status: 'active',
-    createdAt: '2025-06-15',
-    lastActive: '2026-01-28',
-  },
-  {
-    id: '2',
-    name: 'Malika Rahimova',
-    email: 'malika@email.com',
-    phone: '+998 91 234 56 78',
-    role: 'user',
-    orders: 8,
-    totalSpent: 28500000,
-    status: 'active',
-    createdAt: '2025-08-20',
-    lastActive: '2026-01-27',
-  },
-  {
-    id: '3',
-    name: 'Jasur Toshmatov',
-    email: 'jasur@email.com',
-    phone: '+998 93 345 67 89',
-    role: 'vendor',
-    orders: 0,
-    totalSpent: 0,
-    status: 'active',
-    createdAt: '2025-10-01',
-    lastActive: '2026-01-28',
-  },
-  {
-    id: '4',
-    name: 'Nodira Aliyeva',
-    email: 'nodira@email.com',
-    phone: '+998 94 456 78 90',
-    role: 'user',
-    orders: 3,
-    totalSpent: 5200000,
-    status: 'blocked',
-    createdAt: '2025-12-10',
-    lastActive: '2026-01-15',
-  },
-]
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Loader2, Users } from 'lucide-react'
+import { getUsers, getUserStats, updateUserRole, toggleUserStatus, type User } from './actions'
+import { useToast } from '@/components/ui/use-toast'
 
 const roleLabels: Record<string, string> = {
-  user: 'Foydalanuvchi',
+  customer: 'Foydalanuvchi',
   vendor: 'Vendor',
   admin: 'Admin',
 }
 
 export default function AdminUsersPage() {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<User[]>([])
+  const [stats, setStats] = useState({ total: 0, customers: 0, vendors: 0, admins: 0, active: 0 })
+  
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedUser, setSelectedUser] = useState<typeof users[0] | null>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [blockDialogOpen, setBlockDialogOpen] = useState(false)
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false)
+  const [newRole, setNewRole] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const [usersData, statsData] = await Promise.all([
+        getUsers(),
+        getUserStats()
+      ])
+      setUsers(usersData)
+      setStats(statsData)
+    } catch (error) {
+      console.error(error)
+      toast({ title: "Xatolik", description: "Ma'lumotlarni yuklashda xatolik", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.phone.includes(searchQuery)
+    user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.phone?.includes(searchQuery)
   )
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' so\'m'
-  }
-
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase()
+    if (!name) return '?'
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === 'active').length,
-    vendors: users.filter(u => u.role === 'vendor').length,
-    blocked: users.filter(u => u.status === 'blocked').length,
+  const handleToggleStatus = async () => {
+    if (!selectedUser) return
+
+    try {
+      setActionLoading(true)
+      await toggleUserStatus(selectedUser.id, !selectedUser.is_active)
+      await loadData()
+      toast({ title: "Muvaffaqiyatli", description: selectedUser.is_active ? "Foydalanuvchi bloklandi" : "Blokdan chiqarildi" })
+      setBlockDialogOpen(false)
+      setSelectedUser(null)
+    } catch (error) {
+      toast({ title: "Xatolik", description: "Statusni o'zgartirishda xatolik", variant: "destructive" })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleRoleChange = async () => {
+    if (!selectedUser || !newRole) return
+
+    try {
+      setActionLoading(true)
+      await updateUserRole(selectedUser.id, newRole)
+      await loadData()
+      toast({ title: "Muvaffaqiyatli", description: "Foydalanuvchi roli yangilandi" })
+      setRoleDialogOpen(false)
+      setSelectedUser(null)
+      setNewRole('')
+    } catch (error) {
+      toast({ title: "Xatolik", description: "Rolni o'zgartirishda xatolik", variant: "destructive" })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -106,7 +120,7 @@ export default function AdminUsersPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Jami foydalanuvchilar</CardTitle>
+            <CardTitle className="text-sm font-medium">Jami</CardTitle>
             <span className="text-2xl">👥</span>
           </CardHeader>
           <CardContent>
@@ -115,11 +129,11 @@ export default function AdminUsersPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Faol</CardTitle>
-            <span className="text-2xl">✅</span>
+            <CardTitle className="text-sm font-medium">Mijozlar</CardTitle>
+            <span className="text-2xl">🛒</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-2xl font-bold text-green-600">{stats.customers}</div>
           </CardContent>
         </Card>
         <Card>
@@ -133,11 +147,11 @@ export default function AdminUsersPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bloklangan</CardTitle>
-            <span className="text-2xl">🚫</span>
+            <CardTitle className="text-sm font-medium">Adminlar</CardTitle>
+            <span className="text-2xl">👑</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.blocked}</div>
+            <div className="text-2xl font-bold text-purple-600">{stats.admins}</div>
           </CardContent>
         </Card>
       </div>
@@ -150,7 +164,7 @@ export default function AdminUsersPage() {
               <CardDescription>Foydalanuvchilarni boshqaring</CardDescription>
             </div>
             <Input
-              placeholder="Qidirish (ism, email, telefon)..."
+              placeholder="Qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-72"
@@ -164,73 +178,76 @@ export default function AdminUsersPage() {
                 <TableHead>Foydalanuvchi</TableHead>
                 <TableHead>Telefon</TableHead>
                 <TableHead>Rol</TableHead>
-                <TableHead>Buyurtmalar</TableHead>
-                <TableHead>Jami xarid</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Oxirgi faollik</TableHead>
+                <TableHead>Ro'yxatdan o'tgan</TableHead>
                 <TableHead className="text-right">Amallar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`} />
-                        <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-muted-foreground">{user.email}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{user.phone}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === 'vendor' ? 'default' : 'secondary'}>
-                      {roleLabels[user.role]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{user.orders}</TableCell>
-                  <TableCell className="font-medium">{formatPrice(user.totalSpent)}</TableCell>
-                  <TableCell>
-                    <Badge className={user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                      {user.status === 'active' ? 'Faol' : 'Bloklangan'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{user.lastActive}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedUser(user)}
-                      >
-                        Ko'rish
-                      </Button>
-                      <Button
-                        variant={user.status === 'active' ? 'destructive' : 'default'}
-                        size="sm"
-                        onClick={() => {
-                          setSelectedUser(user)
-                          setBlockDialogOpen(true)
-                        }}
-                      >
-                        {user.status === 'active' ? 'Bloklash' : 'Blokdan chiqarish'}
-                      </Button>
-                    </div>
+              {filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Foydalanuvchilar topilmadi</p>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user.full_name}`} />
+                          <AvatarFallback>{getInitials(user.full_name)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{user.full_name || "Noma'lum"}</div>
+                          <div className="text-sm text-muted-foreground">{user.email}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{user.phone || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === 'admin' ? 'default' : user.role === 'vendor' ? 'secondary' : 'outline'}>
+                        {roleLabels[user.role] || 'Foydalanuvchi'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.is_active !== false ? 'default' : 'destructive'}>
+                        {user.is_active !== false ? 'Faol' : 'Bloklangan'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{new Date(user.created_at).toLocaleDateString('uz-UZ')}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedUser(user)
+                            setNewRole(user.role || 'customer')
+                            setRoleDialogOpen(true)
+                          }}
+                        >
+                          Rol
+                        </Button>
+                        <Button
+                          variant={user.is_active !== false ? 'destructive' : 'default'}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedUser(user)
+                            setBlockDialogOpen(true)
+                          }}
+                        >
+                          {user.is_active !== false ? 'Bloklash' : 'Aktivlashtirish'}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
-
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              Foydalanuvchilar topilmadi
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -239,12 +256,12 @@ export default function AdminUsersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {selectedUser?.status === 'active' ? 'Foydalanuvchini bloklash' : 'Blokdan chiqarish'}
+              {selectedUser?.is_active !== false ? 'Foydalanuvchini bloklash' : 'Aktivlashtirish'}
             </DialogTitle>
             <DialogDescription>
-              {selectedUser?.status === 'active'
-                ? `"${selectedUser?.name}" foydalanuvchisini bloklashni xohlaysizmi?`
-                : `"${selectedUser?.name}" foydalanuvchisini blokdan chiqarishni xohlaysizmi?`}
+              {selectedUser?.is_active !== false
+                ? `"${selectedUser?.full_name}" foydalanuvchisini bloklashni xohlaysizmi?`
+                : `"${selectedUser?.full_name}" foydalanuvchisini aktivlashtirishni xohlaysizmi?`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -252,13 +269,45 @@ export default function AdminUsersPage() {
               Bekor qilish
             </Button>
             <Button
-              variant={selectedUser?.status === 'active' ? 'destructive' : 'default'}
-              onClick={() => {
-                console.log(selectedUser?.status === 'active' ? 'Blocking' : 'Unblocking', selectedUser?.id)
-                setBlockDialogOpen(false)
-              }}
+              variant={selectedUser?.is_active !== false ? 'destructive' : 'default'}
+              onClick={handleToggleStatus}
+              disabled={actionLoading}
             >
-              {selectedUser?.status === 'active' ? 'Bloklash' : 'Blokdan chiqarish'}
+              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {selectedUser?.is_active !== false ? 'Bloklash' : 'Aktivlashtirish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Change Dialog */}
+      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Foydalanuvchi rolini o'zgartirish</DialogTitle>
+            <DialogDescription>
+              {selectedUser?.full_name} uchun yangi rol tanlang
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select value={newRole} onValueChange={setNewRole}>
+              <SelectTrigger>
+                <SelectValue placeholder="Rol tanlang" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="customer">Foydalanuvchi</SelectItem>
+                <SelectItem value="vendor">Vendor</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleDialogOpen(false)}>
+              Bekor qilish
+            </Button>
+            <Button onClick={handleRoleChange} disabled={actionLoading}>
+              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Saqlash
             </Button>
           </DialogFooter>
         </DialogContent>

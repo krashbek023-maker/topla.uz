@@ -17,15 +17,15 @@ import {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <ShoppingBag className="h-5 w-5 text-primary-foreground" />
+            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-primary flex items-center justify-center">
+              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">TOPLA.UZ</span>
+            <span className="text-lg sm:text-xl font-bold">TOPLA.UZ</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -43,11 +43,11 @@ export default function HomePage() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" asChild>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button variant="ghost" size="sm" className="text-xs sm:text-sm px-2 sm:px-4" asChild>
               <Link href="/vendor/login">Kirish</Link>
             </Button>
-            <Button asChild>
+            <Button size="sm" className="text-xs sm:text-sm px-2 sm:px-4" asChild>
               <Link href="/vendor/register">Sotuvchi bo'lish</Link>
             </Button>
           </div>
@@ -55,71 +55,71 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="container py-24 md:py-32">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm">
-              <Star className="h-4 w-4" />
+      <section className="container py-12 sm:py-16 md:py-24 lg:py-32 px-4 sm:px-6">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <div className="space-y-6 sm:space-y-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs sm:text-sm">
+              <Star className="h-3 w-3 sm:h-4 sm:w-4" />
               O'zbekistonning #1 marketplace platformasi
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
               Biznesingizni
               <span className="text-primary"> onlayn </span>
               olamga olib chiqing
             </h1>
-            <p className="text-xl text-muted-foreground max-w-lg">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-lg">
               TOPLA.UZ platformasida do'kon oching va millionlab mijozlarga mahsulotlaringizni
               yetkazing. Bepul ro'yxatdan o'ting!
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="gap-2" asChild>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <Button size="lg" className="gap-2 w-full sm:w-auto" asChild>
                 <Link href="/vendor/register">
                   Bepul boshlash
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
                 <Link href="#how-it-works">Batafsil ma'lumot</Link>
               </Button>
             </div>
-            <div className="flex items-center gap-8 pt-4">
-              <div>
-                <div className="text-3xl font-bold">1,500+</div>
-                <div className="text-sm text-muted-foreground">Faol do'konlar</div>
+            <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-8 pt-4">
+              <div className="text-center sm:text-left">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold">1,500+</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Faol do'konlar</div>
               </div>
-              <div>
-                <div className="text-3xl font-bold">50,000+</div>
-                <div className="text-sm text-muted-foreground">Mahsulotlar</div>
+              <div className="text-center sm:text-left">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold">50,000+</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Mahsulotlar</div>
               </div>
-              <div>
-                <div className="text-3xl font-bold">100,000+</div>
-                <div className="text-sm text-muted-foreground">Mijozlar</div>
+              <div className="text-center sm:text-left">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold">100,000+</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Mijozlar</div>
               </div>
             </div>
           </div>
-          <div className="relative">
-            <div className="aspect-square rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              <Store className="h-48 w-48 text-primary/40" />
+          <div className="relative mt-8 lg:mt-0">
+            <div className="aspect-square max-w-sm mx-auto lg:max-w-none rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <Store className="h-24 w-24 sm:h-32 sm:w-32 md:h-48 md:w-48 text-primary/40" />
             </div>
-            <div className="absolute -bottom-6 -left-6 bg-card p-4 rounded-xl shadow-lg border">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
+            <div className="absolute bottom-0 left-0 sm:-bottom-6 sm:-left-6 bg-card p-3 sm:p-4 rounded-xl shadow-lg border">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
                 </div>
                 <div>
-                  <div className="font-semibold">+156%</div>
-                  <div className="text-xs text-muted-foreground">Oylik o'sish</div>
+                  <div className="text-sm sm:text-base font-semibold">+156%</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground">Oylik o'sish</div>
                 </div>
               </div>
             </div>
-            <div className="absolute -top-6 -right-6 bg-card p-4 rounded-xl shadow-lg border">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Package className="h-5 w-5 text-primary" />
+            <div className="absolute top-0 right-0 sm:-top-6 sm:-right-6 bg-card p-3 sm:p-4 rounded-xl shadow-lg border">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 </div>
                 <div>
-                  <div className="font-semibold">24 soat</div>
-                  <div className="text-xs text-muted-foreground">Yetkazib berish</div>
+                  <div className="text-sm sm:text-base font-semibold">24 soat</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground">Yetkazib berish</div>
                 </div>
               </div>
             </div>
@@ -128,14 +128,14 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="container py-24 border-t">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl font-bold mb-4">Nima uchun TOPLA.UZ?</h2>
-          <p className="text-muted-foreground">
+      <section id="features" className="container py-16 sm:py-20 md:py-24 border-t px-4 sm:px-6">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">Nima uchun TOPLA.UZ?</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Bizning platformamiz sotuvchilar uchun barcha zarur vositalarni taqdim etadi
           </p>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
           <Card className="border-2 hover:border-primary/50 transition-colors">
             <CardContent className="pt-6">
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
@@ -206,43 +206,43 @@ export default function HomePage() {
       </section>
 
       {/* How it Works */}
-      <section id="how-it-works" className="bg-muted/50 py-24">
-        <div className="container">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold mb-4">Qanday boshlash mumkin?</h2>
-            <p className="text-muted-foreground">3 oddiy qadamda do'koningizni oching</p>
+      <section id="how-it-works" className="bg-muted/50 py-16 sm:py-20 md:py-24">
+        <div className="container px-4 sm:px-6">
+          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">Qanday boshlash mumkin?</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">3 oddiy qadamda do'koningizni oching</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-3 gap-8 sm:gap-6 md:gap-8">
             <div className="text-center">
-              <div className="h-16 w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-4 sm:mb-6">
                 1
               </div>
-              <h3 className="text-xl font-semibold mb-2">Ro'yxatdan o'ting</h3>
-              <p className="text-muted-foreground">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Ro'yxatdan o'ting</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Telefon raqamingiz va shaxsiy ma'lumotlaringiz bilan ro'yxatdan o'ting
               </p>
             </div>
             <div className="text-center">
-              <div className="h-16 w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-4 sm:mb-6">
                 2
               </div>
-              <h3 className="text-xl font-semibold mb-2">Do'kon oching</h3>
-              <p className="text-muted-foreground">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Do'kon oching</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Do'kon nomini, logosini va tavsifini kiriting. Hujjatlarni yuklang
               </p>
             </div>
             <div className="text-center">
-              <div className="h-16 w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-4 sm:mb-6">
                 3
               </div>
-              <h3 className="text-xl font-semibold mb-2">Sotishni boshlang</h3>
-              <p className="text-muted-foreground">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Sotishni boshlang</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Mahsulotlaringizni qo'shing va buyurtmalarni qabul qilishni boshlang
               </p>
             </div>
           </div>
-          <div className="text-center mt-12">
-            <Button size="lg" asChild>
+          <div className="text-center mt-8 sm:mt-12">
+            <Button size="lg" className="w-full sm:w-auto" asChild>
               <Link href="/vendor/register">Hoziroq boshlash</Link>
             </Button>
           </div>
@@ -250,14 +250,14 @@ export default function HomePage() {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="container py-24">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl font-bold mb-4">Sotuvchilarimiz fikrlari</h2>
-          <p className="text-muted-foreground">
+      <section id="testimonials" className="container py-16 sm:py-20 md:py-24 px-4 sm:px-6">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">Sotuvchilarimiz fikrlari</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Minglab sotuvchilar bizga ishonadi
           </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
           {[
             {
               name: "Aziz Karimov",
@@ -294,20 +294,20 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-24">
-        <div className="container text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+      <section className="bg-primary text-primary-foreground py-16 sm:py-20 md:py-24">
+        <div className="container text-center px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4">
             Biznesingizni bugun boshlang!
           </h2>
-          <p className="text-primary-foreground/80 max-w-2xl mx-auto mb-8">
+          <p className="text-sm sm:text-base text-primary-foreground/80 max-w-2xl mx-auto mb-6 sm:mb-8">
             1,500+ sotuvchi allaqachon TOPLA.UZ da muvaffaqiyatli savdo qilmoqda.
             Siz ham qo'shiling!
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" asChild>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+            <Button size="lg" variant="secondary" className="w-full sm:w-auto" asChild>
               <Link href="/vendor/register">Bepul ro'yxatdan o'tish</Link>
             </Button>
-            <Button size="lg" variant="outline" className="bg-transparent border-white hover:bg-white/10" asChild>
+            <Button size="lg" variant="outline" className="w-full sm:w-auto bg-transparent border-white hover:bg-white/10" asChild>
               <Link href="/contact">Biz bilan bog'lanish</Link>
             </Button>
           </div>
@@ -315,46 +315,46 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-12">
-        <div className="container">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
+      <footer className="border-t py-8 sm:py-12">
+        <div className="container px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
+            <div className="col-span-2 md:col-span-1">
               <Link href="/" className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                  <ShoppingBag className="h-5 w-5 text-primary-foreground" />
+                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-primary flex items-center justify-center">
+                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
                 </div>
-                <span className="text-xl font-bold">TOPLA.UZ</span>
+                <span className="text-lg sm:text-xl font-bold">TOPLA.UZ</span>
               </Link>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 O'zbekistonning eng yirik online marketplace platformasi
               </p>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Sotuvchilar uchun</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Sotuvchilar uchun</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                 <li><Link href="/vendor/register" className="hover:text-primary">Ro'yxatdan o'tish</Link></li>
                 <li><Link href="/vendor/login" className="hover:text-primary">Kirish</Link></li>
                 <li><Link href="#" className="hover:text-primary">Yordam markazi</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Kompaniya</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Kompaniya</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                 <li><Link href="#" className="hover:text-primary">Biz haqimizda</Link></li>
                 <li><Link href="/contact" className="hover:text-primary">Aloqa</Link></li>
                 <li><Link href="#" className="hover:text-primary">Blog</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Aloqa</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Aloqa</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                 <li>📞 +998 90 123 45 67</li>
                 <li>📧 info@topla.uz</li>
                 <li>📍 Toshkent sh., Chilonzor t.</li>
               </ul>
             </div>
           </div>
-          <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
+          <div className="border-t mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-xs sm:text-sm text-muted-foreground">
             © 2024-2026 TOPLA.UZ. Barcha huquqlar himoyalangan.
           </div>
         </div>

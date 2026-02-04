@@ -1,96 +1,93 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Loader2, Package } from 'lucide-react'
+import { formatPrice } from '@/lib/utils'
+import { getOrders, getOrderStats, updateOrderStatus, type Order } from './actions'
+import { useToast } from '@/components/ui/use-toast'
 
-// Mock data
-const orders = [
-  {
-    id: 'ORD-001',
-    customer: 'Abdulloh Karimov',
-    phone: '+998 90 123 45 67',
-    shop: 'TechZone',
-    items: 2,
-    total: 18500000,
-    status: 'pending',
-    paymentMethod: 'Naqd',
-    address: 'Toshkent, Yunusobod tumani',
-    createdAt: '2026-01-28 14:30',
-  },
-  {
-    id: 'ORD-002',
-    customer: 'Malika Rahimova',
-    phone: '+998 91 234 56 78',
-    shop: 'MobileWorld',
-    items: 1,
-    total: 12500000,
-    status: 'processing',
-    paymentMethod: 'Karta',
-    address: 'Toshkent, Mirzo Ulug\'bek tumani',
-    createdAt: '2026-01-28 12:15',
-  },
-  {
-    id: 'ORD-003',
-    customer: 'Jasur Toshmatov',
-    phone: '+998 93 345 67 89',
-    shop: 'SportStyle',
-    items: 3,
-    total: 2400000,
-    status: 'delivered',
-    paymentMethod: 'Naqd',
-    address: 'Samarqand, Registon ko\'chasi',
-    createdAt: '2026-01-27 10:00',
-  },
-  {
-    id: 'ORD-004',
-    customer: 'Nodira Aliyeva',
-    phone: '+998 94 456 78 90',
-    shop: 'TechZone',
-    items: 1,
-    total: 32000000,
-    status: 'cancelled',
-    paymentMethod: 'Karta',
-    address: 'Buxoro, Mustaqillik ko\'chasi',
-    createdAt: '2026-01-26 16:45',
-  },
-]
-
-const statusConfig: Record<string, { color: string; label: string }> = {
-  pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Kutilmoqda' },
-  processing: { color: 'bg-blue-100 text-blue-800', label: 'Jarayonda' },
-  shipped: { color: 'bg-purple-100 text-purple-800', label: 'Yo\'lda' },
-  delivered: { color: 'bg-green-100 text-green-800', label: 'Yetkazildi' },
-  cancelled: { color: 'bg-red-100 text-red-800', label: 'Bekor qilindi' },
+const statusConfig: Record<string, { color: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
+  pending: { color: 'secondary', label: 'Kutilmoqda' },
+  processing: { color: 'default', label: 'Jarayonda' },
+  shipped: { color: 'outline', label: "Yo'lda" },
+  delivered: { color: 'default', label: 'Yetkazildi' },
+  cancelled: { color: 'destructive', label: 'Bekor qilindi' },
 }
 
 export default function AdminOrdersPage() {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [stats, setStats] = useState({ total: 0, pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0, totalRevenue: 0 })
+  
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
-  const [selectedOrder, setSelectedOrder] = useState<typeof orders[0] | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [newStatus, setNewStatus] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const [ordersData, statsData] = await Promise.all([
+        getOrders(),
+        getOrderStats()
+      ])
+      setOrders(ordersData)
+      setStats(statsData)
+    } catch (error) {
+      console.error(error)
+      toast({ title: "Xatolik", description: "Ma'lumotlarni yuklashda xatolik", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.shop.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = order.order_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.shop?.name?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesTab = activeTab === 'all' || order.status === activeTab
     return matchesSearch && matchesTab
   })
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' so\'m'
+  const handleStatusChange = async () => {
+    if (!selectedOrder || !newStatus) return
+
+    try {
+      setActionLoading(true)
+      await updateOrderStatus(selectedOrder.id, newStatus)
+      await loadData()
+      toast({ title: "Muvaffaqiyatli", description: "Buyurtma statusi yangilandi" })
+      setStatusDialogOpen(false)
+      setSelectedOrder(null)
+      setNewStatus('')
+    } catch (error) {
+      toast({ title: "Xatolik", description: "Statusni yangilashda xatolik", variant: "destructive" })
+    } finally {
+      setActionLoading(false)
+    }
   }
 
-  const stats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
+  if (loading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -103,10 +100,10 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Jami buyurtmalar</CardTitle>
+            <CardTitle className="text-sm font-medium">Jami</CardTitle>
             <span className="text-2xl">📦</span>
           </CardHeader>
           <CardContent>
@@ -140,6 +137,15 @@ export default function AdminOrdersPage() {
             <div className="text-2xl font-bold text-green-600">{stats.delivered}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Daromad</CardTitle>
+            <span className="text-2xl">💰</span>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-green-600">{formatPrice(stats.totalRevenue)}</div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -150,7 +156,7 @@ export default function AdminOrdersPage() {
               <CardDescription>Buyurtmalar statusini kuzating</CardDescription>
             </div>
             <Input
-              placeholder="Qidirish (ID, mijoz, do'kon)..."
+              placeholder="Qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-72"
@@ -160,12 +166,12 @@ export default function AdminOrdersPage() {
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
-              <TabsTrigger value="all">Barchasi</TabsTrigger>
-              <TabsTrigger value="pending">Kutilmoqda</TabsTrigger>
-              <TabsTrigger value="processing">Jarayonda</TabsTrigger>
-              <TabsTrigger value="shipped">Yo'lda</TabsTrigger>
-              <TabsTrigger value="delivered">Yetkazildi</TabsTrigger>
-              <TabsTrigger value="cancelled">Bekor</TabsTrigger>
+              <TabsTrigger value="all">Barchasi ({stats.total})</TabsTrigger>
+              <TabsTrigger value="pending">Kutilmoqda ({stats.pending})</TabsTrigger>
+              <TabsTrigger value="processing">Jarayonda ({stats.processing})</TabsTrigger>
+              <TabsTrigger value="shipped">Yo'lda ({stats.shipped})</TabsTrigger>
+              <TabsTrigger value="delivered">Yetkazildi ({stats.delivered})</TabsTrigger>
+              <TabsTrigger value="cancelled">Bekor ({stats.cancelled})</TabsTrigger>
             </TabsList>
 
             <TabsContent value={activeTab} className="mt-4">
@@ -175,7 +181,6 @@ export default function AdminOrdersPage() {
                     <TableHead>Buyurtma ID</TableHead>
                     <TableHead>Mijoz</TableHead>
                     <TableHead>Do'kon</TableHead>
-                    <TableHead>Mahsulotlar</TableHead>
                     <TableHead>Summa</TableHead>
                     <TableHead>To'lov</TableHead>
                     <TableHead>Status</TableHead>
@@ -184,100 +189,92 @@ export default function AdminOrdersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono font-medium">{order.id}</TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{order.customer}</div>
-                          <div className="text-sm text-muted-foreground">{order.phone}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{order.shop}</TableCell>
-                      <TableCell>{order.items} ta</TableCell>
-                      <TableCell className="font-medium">{formatPrice(order.total)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{order.paymentMethod}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={statusConfig[order.status].color}>
-                          {statusConfig[order.status].label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">{order.createdAt}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedOrder(order)}
-                        >
-                          Batafsil
-                        </Button>
+                  {filteredOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-12">
+                        <Package className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">Buyurtmalar topilmadi</p>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filteredOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-mono font-medium">{order.order_number || order.id.slice(0, 8)}</TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{order.customer?.full_name || "Noma'lum"}</div>
+                            <div className="text-sm text-muted-foreground">{order.customer?.phone || '-'}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{order.shop?.name || '-'}</TableCell>
+                        <TableCell className="font-medium">{formatPrice(order.total_amount)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{order.payment_method || 'Naqd'}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusConfig[order.status]?.color || 'secondary'}>
+                            {statusConfig[order.status]?.label || order.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{new Date(order.created_at).toLocaleDateString('uz-UZ')}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOrder(order)
+                              setNewStatus(order.status)
+                              setStatusDialogOpen(true)
+                            }}
+                          >
+                            Status
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
-
-              {filteredOrders.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  Buyurtmalar topilmadi
-                </div>
-              )}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
 
-      {/* Order Detail Dialog */}
-      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-2xl">
+      {/* Status Change Dialog */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Buyurtma: {selectedOrder?.id}</DialogTitle>
+            <DialogTitle>Buyurtma statusini o'zgartirish</DialogTitle>
             <DialogDescription>
-              {selectedOrder?.createdAt} da yaratilgan
+              {selectedOrder?.order_number || selectedOrder?.id?.slice(0, 8)} raqamli buyurtma
             </DialogDescription>
           </DialogHeader>
-          {selectedOrder && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2">Mijoz ma'lumotlari</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="text-muted-foreground">Ism:</span> {selectedOrder.customer}</p>
-                    <p><span className="text-muted-foreground">Telefon:</span> {selectedOrder.phone}</p>
-                    <p><span className="text-muted-foreground">Manzil:</span> {selectedOrder.address}</p>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Buyurtma ma'lumotlari</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="text-muted-foreground">Do'kon:</span> {selectedOrder.shop}</p>
-                    <p><span className="text-muted-foreground">Mahsulotlar:</span> {selectedOrder.items} ta</p>
-                    <p><span className="text-muted-foreground">To'lov:</span> {selectedOrder.paymentMethod}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-semibold">Jami summa:</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    {formatPrice(selectedOrder.total)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1">
-                  Chop etish
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  Mijozga yozish
-                </Button>
-              </div>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Yangi statusni tanlang:</p>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Kutilmoqda</SelectItem>
+                  <SelectItem value="processing">Jarayonda</SelectItem>
+                  <SelectItem value="shipped">Yo'lda</SelectItem>
+                  <SelectItem value="delivered">Yetkazildi</SelectItem>
+                  <SelectItem value="cancelled">Bekor qilindi</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
+              Bekor qilish
+            </Button>
+            <Button onClick={handleStatusChange} disabled={actionLoading}>
+              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Saqlash
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
