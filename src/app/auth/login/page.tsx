@@ -174,7 +174,6 @@ function LoginForm() {
           </p>
         </div>
       </div>
-    </div>
   );
 }
 
