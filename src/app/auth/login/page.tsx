@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, ShoppingBag } from "lucide-react";
@@ -8,9 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
@@ -53,15 +52,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg relative overflow-hidden flex items-center justify-center p-4">
-      {/* Background blobs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="blob blob-1" />
-        <div className="blob blob-2" />
-        <div className="blob blob-3" />
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
+    <div className="w-full max-w-md relative z-10">
         {/* Back button */}
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground mb-8 hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
@@ -183,6 +174,43 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LoginSkeleton() {
+  return (
+    <div className="w-full max-w-md relative z-10">
+      <div className="h-6 w-32 bg-muted/30 rounded animate-pulse mb-8" />
+      <div className="glass rounded-3xl p-8">
+        <div className="flex flex-col items-center mb-8">
+          <div className="h-16 w-16 rounded-2xl bg-muted/30 animate-pulse mb-4" />
+          <div className="h-8 w-48 bg-muted/30 rounded animate-pulse mb-2" />
+          <div className="h-4 w-32 bg-muted/30 rounded animate-pulse" />
+        </div>
+        <div className="space-y-4">
+          <div className="h-12 w-full bg-muted/30 rounded-xl animate-pulse" />
+          <div className="h-12 w-full bg-muted/30 rounded-xl animate-pulse" />
+          <div className="h-12 w-full bg-muted/30 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen gradient-bg relative overflow-hidden flex items-center justify-center p-4">
+      {/* Background blobs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="blob blob-1" />
+        <div className="blob blob-2" />
+        <div className="blob blob-3" />
+      </div>
+
+      <Suspense fallback={<LoginSkeleton />}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }
