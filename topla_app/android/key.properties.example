@@ -1,0 +1,11 @@
+# Keystore konfiguratsiyasi
+# Bu faylni key.properties deb nomlang va .gitignore ga qo'shing
+# HECH QACHON git ga push qilmang!
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=topla-release-key
+storeFile=../keystore/topla-release.jks
+
+# Keystore yaratish uchun quyidagi buyruqni ishlating:
+# keytool -genkey -v -keystore topla-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias topla-release-key

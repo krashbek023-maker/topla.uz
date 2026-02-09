@@ -1,0 +1,52 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/models.dart';
+
+/// Auth operatsiyalari uchun interface
+/// Bu interface orqali Supabase, Firebase yoki boshqa backend'ga
+/// hech qanday kod o'zgartirmasdan o'tish mumkin
+abstract class IAuthRepository {
+  /// Joriy foydalanuvchi ID si
+  String? get currentUserId;
+
+  /// Tizimga kirganmi
+  bool get isLoggedIn;
+
+  /// Telefon orqali OTP yuborish
+  Future<void> sendOTP(String phone);
+
+  /// OTP ni tasdiqlash
+  Future<AuthResponse> verifyOTP(String phone, String otp);
+
+  /// Email + Password bilan ro'yxatdan o'tish
+  Future<AuthResponse> signUp(String email, String password);
+
+  /// Email + Password bilan kirish
+  Future<AuthResponse> signIn(String email, String password);
+
+  /// Parolni tiklash
+  Future<void> resetPassword(String email);
+
+  /// Google orqali kirish
+  Future<void> signInWithGoogle();
+
+  /// Tizimdan chiqish
+  Future<void> signOut();
+
+  /// Profil ma'lumotlarini olish
+  Future<UserProfile?> getProfile();
+
+  /// Profil yaratish/yangilash
+  Future<void> upsertProfile(UserProfile profile);
+
+  /// Profilni yangilash
+  Future<void> updateProfile({
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? phone,
+    String? avatarUrl,
+  });
+
+  /// Foydalanuvchi rolini olish
+  Future<UserRole> getUserRole();
+}

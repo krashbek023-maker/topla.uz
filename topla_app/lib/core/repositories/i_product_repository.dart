@@ -1,0 +1,68 @@
+import '../../models/models.dart';
+
+/// Mahsulot operatsiyalari uchun interface
+abstract class IProductRepository {
+  /// Barcha mahsulotlarni olish (pagination bilan)
+  Future<List<ProductModel>> getProducts({
+    String? categoryId,
+    bool? isFeatured,
+    bool? isFlashSale,
+    String? search,
+    int limit = 20,
+    int offset = 0,
+  });
+
+  /// Bitta mahsulotni olish
+  Future<ProductModel?> getProductById(String id);
+
+  /// Tavsiya etilgan mahsulotlar
+  Future<List<ProductModel>> getFeaturedProducts({int limit = 10});
+
+  /// Flash sale mahsulotlar
+  Future<List<ProductModel>> getFlashSaleProducts({int limit = 10});
+
+  /// Mahsulot qidirish
+  Future<List<ProductModel>> searchProducts(String query, {int limit = 20});
+
+  /// Kategoriya bo'yicha mahsulotlar
+  Future<List<ProductModel>> getProductsByCategory(
+    String categoryId, {
+    int limit = 20,
+    int offset = 0,
+  });
+
+  /// Do'kon mahsulotlari
+  Future<List<ProductModel>> getProductsByShop(
+    String shopId, {
+    int limit = 20,
+    int offset = 0,
+  });
+
+  // === FILTER TIZIMI ===
+
+  /// Kategoriya bo'yicha brendlarni olish
+  Future<List<BrandModel>> getBrandsByCategory(String categoryId);
+
+  /// Barcha ranglarni olish
+  Future<List<ColorOption>> getColors();
+
+  /// Kategoriya bo'yicha ranglarni olish (mahsulot bor)
+  Future<List<ColorOption>> getColorsByCategory(String categoryId);
+
+  /// Kategoriyaga xos filter atributlarini olish
+  Future<List<CategoryFilterAttribute>> getCategoryFilters(String categoryId);
+
+  /// Filtrlangan mahsulotlarni olish
+  Future<FilteredProductsResult> getFilteredProducts({
+    required String categoryId,
+    required ProductFilter filter,
+    int limit = 20,
+    int offset = 0,
+  });
+
+  /// Filtrlangan mahsulotlar sonini olish
+  Future<int> getFilteredProductsCount({
+    required String categoryId,
+    required ProductFilter filter,
+  });
+}

@@ -1,0 +1,532 @@
+import 'package:flutter/material.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../core/constants/constants.dart';
+import '../../models/shop_model.dart';
+import '../../models/vendor_stats.dart';
+import '../../services/vendor_service.dart';
+import 'vendor_products_screen.dart';
+import 'vendor_orders_screen.dart';
+import 'vendor_payouts_screen.dart';
+import 'vendor_analytics_screen.dart';
+import 'vendor_commissions_screen.dart';
+import 'vendor_documents_screen.dart';
+import 'shop_settings_screen.dart';
+import 'create_shop_screen.dart';
+
+/// Vendor Dashboard ekrani
+class VendorDashboardScreen extends StatefulWidget {
+  const VendorDashboardScreen({super.key});
+
+  @override
+  State<VendorDashboardScreen> createState() => _VendorDashboardScreenState();
+}
+
+class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
+  ShopModel? _shop;
+  VendorStatsModel? _stats;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final shop = await VendorService.getMyShop();
+      setState(() => _shop = shop);
+
+      if (shop != null) {
+        final stats = await VendorService.getMyStats();
+        setState(() => _stats = stats);
+      }
+    } catch (e) {
+      debugPrint('Error loading data: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Agar do'kon yo'q bo'lsa, yaratish ekraniga yo'naltirish
+    if (_shop == null) {
+      return const CreateShopScreen();
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: Text(_shop!.name),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ShopSettingsScreen(shop: _shop!),
+              ),
+            ).then((_) => _loadData()),
+            icon: const Icon(Iconsax.setting_2),
+          ),
+          IconButton(
+            onPressed: _loadData,
+            icon: const Icon(Iconsax.refresh),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Holat
+              if (!_shop!.isVerified)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Iconsax.warning_2, color: Colors.orange),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Do\'kon hali tasdiqlanmagan',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                            Text(
+                              'Admin tekshiruvidan keyin faollashadi',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Balans
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary,
+                      AppColors.primary.withValues(alpha: 0.8)
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Balans',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Iconsax.star,
+                                size: 14,
+                                color: Colors.yellow.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _stats?.formattedRating ?? '0.0',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _stats?.formattedBalance ?? '0 so\'m',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const VendorPayoutsScreen(),
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                      ),
+                      child: const Text('Pul yechish'),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Bugungi statistika
+              _buildSectionTitle('Bugun'),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Buyurtmalar',
+                      '${_stats?.todayOrders ?? 0}',
+                      Iconsax.shopping_bag,
+                      Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Daromad',
+                      _stats?.formattedTodayRevenue ?? '0',
+                      Iconsax.money,
+                      Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Mahsulotlar statistikasi
+              _buildSectionTitle('Mahsulotlar'),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildProductStat(
+                      'Faol',
+                      _stats?.activeProducts ?? 0,
+                      Colors.green,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildProductStat(
+                      'Kutilmoqda',
+                      _stats?.pendingProducts ?? 0,
+                      Colors.orange,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildProductStat(
+                      'Rad etilgan',
+                      _stats?.rejectedProducts ?? 0,
+                      Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Oylik statistika
+              _buildSectionTitle('Shu oy'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildStatRow(
+                      'Daromad',
+                      _stats?.formattedMonthlyRevenue ?? '0',
+                      Iconsax.money,
+                    ),
+                    const Divider(),
+                    _buildStatRow(
+                      'Buyurtmalar',
+                      '${_stats?.monthlyOrders ?? 0} ta',
+                      Iconsax.shopping_bag,
+                    ),
+                    const Divider(),
+                    _buildStatRow(
+                      'Komissiya (${_shop?.commissionRate ?? 10}%)',
+                      '${_stats?.monthlyCommission.toStringAsFixed(0) ?? 0} so\'m',
+                      Iconsax.percentage_circle,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Tezkor harakatlar
+              _buildSectionTitle('Boshqaruv'),
+              const SizedBox(height: 12),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.5,
+                children: [
+                  _buildActionCard(
+                    'Mahsulotlar',
+                    Iconsax.box,
+                    Colors.blue,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VendorProductsScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildActionCard(
+                    'Buyurtmalar',
+                    Iconsax.shopping_bag,
+                    Colors.orange,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VendorOrdersScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildActionCard(
+                    'To\'lovlar',
+                    Iconsax.wallet,
+                    Colors.green,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VendorPayoutsScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildActionCard(
+                    'Analitika',
+                    Iconsax.chart,
+                    Colors.teal,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VendorAnalyticsScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildActionCard(
+                    'Komissiyalar',
+                    Iconsax.percentage_circle,
+                    Colors.pink,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VendorCommissionsScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildActionCard(
+                    'Hujjatlar',
+                    Iconsax.document_text,
+                    Colors.indigo,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VendorDocumentsScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildActionCard(
+                    'Sozlamalar',
+                    Iconsax.setting_2,
+                    Colors.purple,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ShopSettingsScreen(shop: _shop!),
+                      ),
+                    ).then((_) => _loadData()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductStat(String label, int count, Color color) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label)),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

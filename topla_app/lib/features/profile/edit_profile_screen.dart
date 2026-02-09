@@ -1,0 +1,560 @@
+import 'package:flutter/material.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:provider/provider.dart';
+import '../../core/constants/constants.dart';
+import '../../providers/auth_provider.dart';
+
+class EditProfileScreen extends StatefulWidget {
+  final Map<String, dynamic>? profile;
+
+  const EditProfileScreen({super.key, this.profile});
+
+  @override
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends State<EditProfileScreen> {
+  late TextEditingController _nameController;
+  late TextEditingController _surnameController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+  bool _isLoading = false;
+  bool _hasPhone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final phone = widget.profile?['phone'] ?? '';
+    _hasPhone = phone.isNotEmpty && !phone.contains('XX');
+
+    _nameController = TextEditingController(
+      text: widget.profile?['first_name'] ?? '',
+    );
+    _surnameController = TextEditingController(
+      text: widget.profile?['last_name'] ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.profile?['email'] ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: _hasPhone ? phone : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _surnameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text(
+          'Profilni tahrirlash',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Avatar Section
+            _buildAvatarSection(),
+
+            const SizedBox(height: 32),
+
+            // Form
+            _buildForm(),
+
+            const SizedBox(height: 32),
+
+            // Save Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Saqlash',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarSection() {
+    final initials = _getInitials();
+
+    return Center(
+      child: Stack(
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.primary,
+                  AppColors.primary.withValues(alpha: 0.7),
+                ],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Iconsax.camera,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // First Name
+          _buildTextField(
+            controller: _nameController,
+            label: 'Ism',
+            hint: 'Ismingizni kiriting',
+            icon: Iconsax.user,
+          ),
+
+          const SizedBox(height: 20),
+
+          // Last Name
+          _buildTextField(
+            controller: _surnameController,
+            label: 'Familiya',
+            hint: 'Familiyangizni kiriting',
+            icon: Iconsax.user,
+          ),
+
+          const SizedBox(height: 20),
+
+          // Email
+          _buildTextField(
+            controller: _emailController,
+            label: 'Email (ixtiyoriy)',
+            hint: 'Email manzilingiz',
+            icon: Iconsax.sms,
+            keyboardType: TextInputType.emailAddress,
+          ),
+
+          const SizedBox(height: 20),
+
+          // Phone - editable if no phone, read-only if has phone
+          if (_hasPhone)
+            _buildReadOnlyField(
+              label: 'Telefon raqam',
+              value: widget.profile?['phone'] ?? '',
+              icon: Iconsax.call,
+            )
+          else
+            _buildPhoneField(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Telefon raqam',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            hintText: '90 123 45 67',
+            prefixIcon: Container(
+              padding: const EdgeInsets.only(left: 16, right: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Iconsax.call, color: Colors.grey.shade500),
+                  const SizedBox(width: 8),
+                  Text(
+                    '+998',
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 0, minHeight: 0),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: AppColors.primary, width: 2),
+            ),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, color: Colors.grey.shade500),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: AppColors.primary, width: 2),
+            ),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    final hasValue = value.isNotEmpty && !value.contains('XX');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.grey.shade500),
+              const SizedBox(width: 12),
+              Text(
+                value,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              if (hasValue)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Tasdiqlangan',
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getInitials() {
+    final name = _nameController.text.trim();
+    final surname = _surnameController.text.trim();
+
+    if (name.isEmpty && surname.isEmpty) return 'U';
+
+    String initials = '';
+    if (name.isNotEmpty) initials += name[0].toUpperCase();
+    if (surname.isNotEmpty) initials += surname[0].toUpperCase();
+
+    return initials.isEmpty ? 'U' : initials;
+  }
+
+  void _pickImage() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Rasm tanlash',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildImageOption(
+                      icon: Iconsax.camera,
+                      label: 'Kamera',
+                      onTap: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Kamera funksiyasi tez orada...'),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildImageOption(
+                      icon: Iconsax.gallery,
+                      label: 'Galereya',
+                      onTap: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Galereya funksiyasi tez orada...'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              icon,
+              color: AppColors.primary,
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveProfile() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ismingizni kiriting'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Format phone number
+      String? phone;
+      if (!_hasPhone && _phoneController.text.trim().isNotEmpty) {
+        final phoneDigits =
+            _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+        if (phoneDigits.length >= 9) {
+          phone = '+998$phoneDigits';
+        }
+      }
+
+      // Save using AuthProvider
+      await context.read<AuthProvider>().updateProfile(
+            firstName: _nameController.text.trim(),
+            lastName: _surnameController.text.trim(),
+            email: _emailController.text.trim().isEmpty
+                ? null
+                : _emailController.text.trim(),
+            phone: phone,
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Profil yangilandi'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Xatolik: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+}

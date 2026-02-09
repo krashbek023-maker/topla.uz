@@ -1,0 +1,340 @@
+import 'package:flutter/material.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../core/constants/constants.dart';
+import '../../models/payout_model.dart';
+import '../../models/shop_model.dart';
+import '../../services/vendor_service.dart';
+
+/// Vendor - To'lovlar
+class VendorPayoutsScreen extends StatefulWidget {
+  const VendorPayoutsScreen({super.key});
+
+  @override
+  State<VendorPayoutsScreen> createState() => _VendorPayoutsScreenState();
+}
+
+class _VendorPayoutsScreenState extends State<VendorPayoutsScreen> {
+  List<PayoutModel> _payouts = [];
+  ShopModel? _shop;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final shop = await VendorService.getMyShop();
+      final payouts = await VendorService.getMyPayouts();
+      setState(() {
+        _shop = shop;
+        _payouts = payouts;
+      });
+    } catch (e) {
+      debugPrint('Error loading data: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _requestPayout() async {
+    final amountController = TextEditingController();
+    PaymentMethod selectedMethod = PaymentMethod.click;
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Pul yechish',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Mavjud balans: ${_shop?.formattedBalance ?? '0 so\'m'}',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Summa',
+                  suffixText: 'so\'m',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'To\'lov usuli',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: PaymentMethod.values.map((method) {
+                  final isSelected = selectedMethod == method;
+                  return ChoiceChip(
+                    label: Text(_getMethodName(method)),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setModalState(() => selectedMethod = method);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final amount = double.tryParse(amountController.text);
+                    if (amount != null && amount > 0) {
+                      Navigator.pop(context, {
+                        'amount': amount,
+                        'method': selectedMethod,
+                      });
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('So\'rov yuborish'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (result != null) {
+      try {
+        await VendorService.requestPayout(
+          amount: result['amount'],
+          paymentMethod: result['method'],
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('So\'rov yuborildi'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        _loadData();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Xatolik: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  String _getMethodName(PaymentMethod method) {
+    switch (method) {
+      case PaymentMethod.click:
+        return 'Click';
+      case PaymentMethod.payme:
+        return 'Payme';
+      case PaymentMethod.bankTransfer:
+        return 'Bank o\'tkazmasi';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('To\'lovlar'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _requestPayout,
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Iconsax.money_send),
+        label: const Text('Pul yechish'),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: Column(
+                children: [
+                  // Balance card
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primary.withValues(alpha: 0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Mavjud balans',
+                              style: TextStyle(
+                                color: Colors.white70,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _shop?.formattedBalance ?? '0 so\'m',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Icon(
+                          Iconsax.wallet,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Payouts list
+                  Expanded(
+                    child: _payouts.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Iconsax.money,
+                                  size: 64,
+                                  color: Colors.grey.shade400,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'To\'lovlar tarixi bo\'sh',
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _payouts.length,
+                            itemBuilder: (context, index) {
+                              return _buildPayoutCard(_payouts[index]);
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildPayoutCard(PayoutModel payout) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor:
+              _getStatusColor(payout.status).withValues(alpha: 0.1),
+          child: Icon(
+            _getStatusIcon(payout.status),
+            color: _getStatusColor(payout.status),
+          ),
+        ),
+        title: Text(
+          payout.formattedNetAmount,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${payout.paymentMethodText} • ${_formatDate(payout.createdAt)}',
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: _getStatusColor(payout.status).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            payout.statusText,
+            style: TextStyle(
+              color: _getStatusColor(payout.status),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(PayoutStatus status) {
+    switch (status) {
+      case PayoutStatus.pending:
+        return Colors.orange;
+      case PayoutStatus.processing:
+        return Colors.blue;
+      case PayoutStatus.completed:
+        return Colors.green;
+      case PayoutStatus.failed:
+      case PayoutStatus.cancelled:
+        return Colors.red;
+    }
+  }
+
+  IconData _getStatusIcon(PayoutStatus status) {
+    switch (status) {
+      case PayoutStatus.pending:
+        return Iconsax.clock;
+      case PayoutStatus.processing:
+        return Iconsax.timer;
+      case PayoutStatus.completed:
+        return Iconsax.tick_circle;
+      case PayoutStatus.failed:
+      case PayoutStatus.cancelled:
+        return Iconsax.close_circle;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}.${date.month}.${date.year}';
+  }
+}

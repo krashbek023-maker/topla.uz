@@ -1,0 +1,292 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
+import '../../core/constants/constants.dart';
+import '../../core/localization/app_localizations.dart';
+
+class PhoneAuthScreen extends StatefulWidget {
+  const PhoneAuthScreen({super.key});
+
+  @override
+  State<PhoneAuthScreen> createState() => _PhoneAuthScreenState();
+}
+
+class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
+  final _phoneController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+  String _selectedCountryCode = '+998';
+
+  final List<Map<String, String>> _countryCodes = [
+    {'code': '+998', 'country': '🇺🇿 O\'zbekiston', 'flag': '🇺🇿'},
+    {'code': '+7', 'country': '🇷🇺 Rossiya', 'flag': '🇷🇺'},
+    {'code': '+7', 'country': '🇰🇿 Qozog\'iston', 'flag': '🇰🇿'},
+    {'code': '+992', 'country': '🇹🇯 Tojikiston', 'flag': '🇹🇯'},
+    {'code': '+996', 'country': '🇰🇬 Qirg\'iziston', 'flag': '🇰🇬'},
+  ];
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendOtp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final phoneNumber =
+        '$_selectedCountryCode${_phoneController.text.replaceAll(' ', '')}';
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Android: Avtomatik tekshirish
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/main');
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() => _isLoading = false);
+          String message = 'Xatolik yuz berdi';
+          if (e.code == 'invalid-phone-number') {
+            message = 'Telefon raqami noto\'g\'ri';
+          } else if (e.code == 'too-many-requests') {
+            message = 'Juda ko\'p urinish. Keyinroq qayta urinib ko\'ring';
+          } else if (e.code == 'web-context-cancelled') {
+            message = 'reCAPTCHA bekor qilindi';
+          } else if (e.code == 'captcha-check-failed') {
+            message = 'reCAPTCHA tekshiruvi muvaffaqiyatsiz';
+          } else if (e.code == 'missing-client-identifier') {
+            message = 'Iltimos, Android yoki iOS qurilmada sinab ko\'ring';
+          } else {
+            message = 'Xatolik: ${e.message ?? e.code}';
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.red),
+          );
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() => _isLoading = false);
+          Navigator.pushNamed(
+            context,
+            '/otp',
+            arguments: {
+              'verificationId': verificationId,
+              'phoneNumber': phoneNumber,
+              'resendToken': resendToken,
+            },
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xatolik: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Iconsax.arrow_left, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(
+                  l10n?.translate('enter_phone') ??
+                      'Telefon raqamingizni kiriting',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n?.translate('we_will_send_code') ??
+                      'Sizga SMS kod yuboramiz',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 40),
+
+                // Phone Input
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      // Country Code Dropdown
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCountryCode,
+                            items: _countryCodes.map((country) {
+                              return DropdownMenuItem(
+                                value: country['code'],
+                                child: Text(
+                                  '${country['flag']} ${country['code']}',
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedCountryCode = value!);
+                            },
+                          ),
+                        ),
+                      ),
+
+                      // Divider
+                      Container(
+                        height: 30,
+                        width: 1,
+                        color: Colors.grey.shade300,
+                      ),
+
+                      // Phone Number Input
+                      Expanded(
+                        child: TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          style:
+                              const TextStyle(fontSize: 18, letterSpacing: 1),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(9),
+                            _PhoneNumberFormatter(),
+                          ],
+                          decoration: InputDecoration(
+                            hintText: '90 123 45 67',
+                            hintStyle: TextStyle(color: Colors.grey.shade400),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Telefon raqamini kiriting';
+                            }
+                            if (value.replaceAll(' ', '').length < 9) {
+                              return 'Telefon raqami to\'liq emas';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Continue Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _sendOtp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            l10n?.translate('continue') ?? 'Davom etish',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Terms
+                Center(
+                  child: Text(
+                    l10n?.translate('terms_agree') ??
+                        'Davom etish orqali siz foydalanish shartlariga rozilik bildirasiz',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Phone number formatter (XX XXX XX XX)
+class _PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text.replaceAll(' ', '');
+    final buffer = StringBuffer();
+
+    for (int i = 0; i < text.length; i++) {
+      if (i == 2 || i == 5 || i == 7) {
+        buffer.write(' ');
+      }
+      buffer.write(text[i]);
+    }
+
+    return TextEditingValue(
+      text: buffer.toString(),
+      selection: TextSelection.collapsed(offset: buffer.length),
+    );
+  }
+}

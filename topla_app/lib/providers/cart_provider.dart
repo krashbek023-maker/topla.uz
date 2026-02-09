@@ -1,0 +1,176 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import '../core/repositories/repositories.dart';
+import '../models/models.dart';
+
+/// Savat holati uchun Provider
+class CartProvider extends ChangeNotifier {
+  final ICartRepository _cartRepo;
+
+  CartProvider(this._cartRepo) {
+    _init();
+  }
+
+  // State
+  List<CartItemModel> _items = [];
+  bool _isLoading = false;
+  String? _error;
+  StreamSubscription? _cartSubscription;
+
+  // Getters
+  List<CartItemModel> get items => _items;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  bool get isEmpty => _items.isEmpty;
+  int get itemCount => _items.length;
+  int get totalQuantity => _items.fold(0, (sum, item) => sum + item.quantity);
+
+  double get subtotal => _items.fold(0, (sum, item) => sum + item.total);
+  double get deliveryFee => 50000;
+  double get total => subtotal + deliveryFee;
+
+  void _init() {
+    loadCart();
+    _startRealtimeSubscription();
+  }
+
+  /// Public method to start realtime subscription (for main screen)
+  void startRealtimeSubscription() {
+    _startRealtimeSubscription();
+  }
+
+  /// Public method to stop realtime subscription
+  void stopRealtimeSubscription() {
+    _cartSubscription?.cancel();
+    _cartSubscription = null;
+  }
+
+  void _startRealtimeSubscription() {
+    _cartSubscription?.cancel();
+    _cartSubscription = _cartRepo.watchCart().listen(
+      (_) async {
+        // Realtime stream doesn't include product joins,
+        // so we reload cart properly with product data
+        try {
+          _items = await _cartRepo.getCart();
+          debugPrint('🛒 Cart realtime: ${_items.length} items loaded');
+          notifyListeners();
+        } catch (e) {
+          debugPrint('🛒 Cart realtime reload error: $e');
+        }
+      },
+      onError: (e) {
+        debugPrint('🛒 Cart stream error: $e');
+        _error = e.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<void> loadCart() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _items = await _cartRepo.getCart();
+      debugPrint(
+          '🛒 loadCart: ${_items.length} items, products: ${_items.where((i) => i.product != null).length}');
+    } catch (e) {
+      debugPrint('🛒 loadCart error: $e');
+      _error = e.toString();
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> addToCart(String productId, {int quantity = 1}) async {
+    try {
+      await _cartRepo.addToCart(productId, quantity: quantity);
+      // Manually reload to ensure cart updates immediately
+      try {
+        _items = await _cartRepo.getCart();
+        debugPrint('🛒 addToCart: ${_items.length} items after reload');
+        notifyListeners();
+      } catch (e) {
+        debugPrint('🛒 addToCart reload error: $e');
+        // Reload failed but item was added - try loading again
+        await loadCart();
+      }
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('🛒 addToCart error: $e');
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> updateQuantity(String cartItemId, int quantity) async {
+    // Optimistic update: immediately update locally
+    final index = _items.indexWhere((item) => item.id == cartItemId);
+    if (index != -1) {
+      _items[index] = _items[index].copyWith(quantity: quantity);
+      notifyListeners();
+    }
+    try {
+      await _cartRepo.updateCartQuantity(cartItemId, quantity);
+      // Realtime subscription will sync
+    } catch (e) {
+      // Revert on error
+      try {
+        _items = await _cartRepo.getCart();
+        notifyListeners();
+      } catch (_) {}
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> removeFromCart(String cartItemId) async {
+    // Optimistic: remove locally first
+    final removedItems = List<CartItemModel>.from(_items);
+    _items.removeWhere((item) => item.id == cartItemId);
+    notifyListeners();
+    try {
+      await _cartRepo.removeFromCart(cartItemId);
+      // Realtime subscription will sync
+    } catch (e) {
+      // Revert on error
+      _items = removedItems;
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> clearCart() async {
+    try {
+      await _cartRepo.clearCart();
+      _items = [];
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Promo kodni tekshirish
+  Future<Map<String, dynamic>?> validatePromoCode(String code) async {
+    try {
+      return await _cartRepo.validatePromoCode(code);
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  @override
+  void dispose() {
+    _cartSubscription?.cancel();
+    super.dispose();
+  }
+}
