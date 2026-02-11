@@ -41,6 +41,7 @@ import {
   Loader2,
   Star,
   X,
+  MessageCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -48,6 +49,7 @@ const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/vendor/dashboard" },
   { icon: Package, label: "Mahsulotlar", href: "/vendor/products" },
   { icon: ShoppingCart, label: "Buyurtmalar", href: "/vendor/orders" },
+  { icon: MessageCircle, label: "Chat", href: "/vendor/chat" },
   { icon: Wallet, label: "Hisobim", href: "/vendor/balance" },
   { icon: BarChart3, label: "Statistika", href: "/vendor/analytics" },
   { icon: Star, label: "Sharhlar", href: "/vendor/reviews" },

@@ -64,7 +64,7 @@ export default function AdminProductsPage() {
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name_uz.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.shop?.name.toLowerCase().includes(searchQuery.toLowerCase())
+      product.shop?.name?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesTab = activeTab === 'all' || product.status === activeTab
     return matchesSearch && matchesTab
   })
@@ -252,7 +252,7 @@ export default function AdminProductsPage() {
                         <TableCell>{product.shop?.name || "Noma'lum"}</TableCell>
                         <TableCell>{product.category?.name_uz || "-"}</TableCell>
                         <TableCell className="font-medium">{formatPrice(product.price)}</TableCell>
-                        <TableCell>{new Date(product.created_at).toLocaleDateString("uz-UZ")}</TableCell>
+                        <TableCell>{product.created_at ? new Date(product.created_at).toLocaleDateString("uz-UZ") : "-"}</TableCell>
                         <TableCell>
                           <Badge variant={statusColors[product.status] || "secondary"}>
                             {statusLabels[product.status] || product.status}

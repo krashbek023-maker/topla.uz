@@ -218,8 +218,8 @@ export default function AdminPromoCodesPage() {
                     <span className="bg-muted px-2 py-1 rounded">
                       {code.discount_type === 'percentage' ? `${code.discount_value}%` : formatPrice(code.discount_value)}
                     </span>
-                    {code.min_order_amount > 0 && (
-                      <span className="bg-muted px-2 py-1 rounded">Min: {formatPrice(code.min_order_amount)}</span>
+                    {(code.min_order_amount ?? 0) > 0 && (
+                      <span className="bg-muted px-2 py-1 rounded">Min: {formatPrice(code.min_order_amount!)}</span>
                     )}
                     {code.usage_limit && (
                       <span className="bg-muted px-2 py-1 rounded">Limit: {code.used_count}/{code.usage_limit}</span>

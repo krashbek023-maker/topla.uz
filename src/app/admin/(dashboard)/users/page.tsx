@@ -185,7 +185,7 @@ export default function AdminUsersPage() {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user.full_name}`} />
-                      <AvatarFallback className="text-xs">{getInitials(user.full_name)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{getInitials(user.full_name || '')}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">{user.full_name || "Noma'lum"}</div>
@@ -195,7 +195,7 @@ export default function AdminUsersPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex gap-1">
                       <Badge variant={user.role === 'admin' ? 'default' : user.role === 'vendor' ? 'secondary' : 'outline'} className="text-xs">
-                        {roleLabels[user.role] || 'Foydalanuvchi'}
+                        {roleLabels[user.role as string] || 'Foydalanuvchi'}
                       </Badge>
                       <Badge variant={user.is_active !== false ? 'default' : 'destructive'} className="text-xs">
                         {user.is_active !== false ? 'Faol' : 'Bloklangan'}
@@ -245,7 +245,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center gap-3">
                         <Avatar>
                           <AvatarImage src={user.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${user.full_name}`} />
-                          <AvatarFallback>{getInitials(user.full_name)}</AvatarFallback>
+                          <AvatarFallback>{getInitials(user.full_name || '')}</AvatarFallback>
                         </Avatar>
                         <div>
                           <div className="font-medium">{user.full_name || "Noma'lum"}</div>
@@ -256,7 +256,7 @@ export default function AdminUsersPage() {
                     <TableCell>{user.phone || '-'}</TableCell>
                     <TableCell>
                       <Badge variant={user.role === 'admin' ? 'default' : user.role === 'vendor' ? 'secondary' : 'outline'}>
-                        {roleLabels[user.role] || 'Foydalanuvchi'}
+                        {roleLabels[user.role as string] || 'Foydalanuvchi'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -264,7 +264,7 @@ export default function AdminUsersPage() {
                         {user.is_active !== false ? 'Faol' : 'Bloklangan'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{new Date(user.created_at).toLocaleDateString('uz-UZ')}</TableCell>
+                    <TableCell className="text-sm">{user.created_at ? new Date(user.created_at).toLocaleDateString('uz-UZ') : '-'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button

@@ -355,7 +355,7 @@ export default function AdminShopsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span>{selectedShop.owner?.email || selectedShop.email}</span>
+                    <span>{(selectedShop.owner as any)?.email || selectedShop.email}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
