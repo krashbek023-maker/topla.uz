@@ -23,7 +23,7 @@ export async function findAndAssignCourier(orderId: string, excludedCourierIds: 
       address: true,
       items: {
         include: {
-          shop: { select: { id: true, name: true, latitude: true, longitude: true } },
+          shop: { select: { id: true, name: true, latitude: true, longitude: true, ownerId: true } },
         },
       },
     },
@@ -58,7 +58,16 @@ export async function findAndAssignCourier(orderId: string, excludedCourierIds: 
 
   if (availableCouriers.length === 0) {
     console.warn(`Order ${orderId}: Online kuryer topilmadi`);
-    // TODO: Vendorga xabar berish — kuryer topilmadi
+    // Vendorga xabar berish — kuryer topilmadi
+    await prisma.notification.create({
+      data: {
+        userId: shop.ownerId,
+        title: 'Kuryer topilmadi',
+        body: `#${orderId.slice(0, 8)} buyurtma uchun online kuryer topilmadi. O'zingiz yetkazib berishingiz mumkin.`,
+        type: 'system',
+        data: { orderId } as any,
+      },
+    }).catch((err) => console.error('Vendor notification error:', err));
     return;
   }
 

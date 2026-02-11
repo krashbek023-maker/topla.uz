@@ -66,6 +66,7 @@ model Profile {
   chatRoomsAsCustomer ChatRoom[] @relation("CustomerChats")
   chatMessages    ChatMessage[]
   moderationLogs  ProductModerationLog[]
+  productViews    ProductView[]
 
   @@map("profiles")
 }
@@ -318,6 +319,7 @@ model Product {
   orderItems    OrderItem[]
   favorites     Favorite[]
   moderationLogs ProductModerationLog[]
+  views         ProductView[]
 
   @@index([shopId])
   @@index([categoryId])
@@ -326,6 +328,22 @@ model Product {
   @@index([qualityScore(sort: Desc)])
   @@index([isActive, isFeatured])
   @@map("products")
+}
+
+model ProductView {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId, createdAt])
+  @@index([productId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("product_views")
 }
 
 // ============================================

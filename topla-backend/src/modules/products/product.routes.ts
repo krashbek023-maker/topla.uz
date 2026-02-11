@@ -192,36 +192,26 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
 
     // Ko'rish sonini oshirish (faqat autentifikatsiya qilingan foydalanuvchilar uchun, deduplicated)
     if (request.user) {
-      // Bugun bu user bu mahsulotni ko'rganmi tekshirish
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      // TODO: ProductView modeli schema.prisma ga qo'shilganda ochiladi
-      /*
-      const alreadyViewed = await prisma.productView?.findFirst?.({
+
+      const alreadyViewed = await prisma.productView.findFirst({
         where: {
           productId: id,
           userId: request.user.userId,
           createdAt: { gte: today },
         },
-      }).catch(() => null);
+      });
 
       if (!alreadyViewed) {
         await prisma.product.update({
           where: { id },
           data: { viewCount: { increment: 1 } },
         });
-        // ProductView jadvali bo'lsa saqlash
-        await prisma.productView?.create?.({
+        await prisma.productView.create({
           data: { productId: id, userId: request.user.userId },
-        }).catch(() => {});
+        });
       }
-      */
-      
-      // Hozircha faqat oddiy increment
-      await prisma.product.update({
-        where: { id },
-        data: { viewCount: { increment: 1 } },
-      });
     } else {
       // Anonim foydalanuvchilar uchun oddiy increment
       await prisma.product.update({

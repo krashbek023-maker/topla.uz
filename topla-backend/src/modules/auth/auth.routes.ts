@@ -618,8 +618,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     // 1. UUID token yaratish
     // 2. Bazaga saqlash (reset_token, reset_token_expires)
     // 3. Email yuborish
-    // Hozircha mock javob
-    console.log(`Password reset requested for: ${body.email} (user: ${profile.id})`);
+    // Hozircha log qilib qo'yamiz — production'da email service ulanadi
+    console.log(`[Auth] Password reset requested for: ${body.email} (user: ${profile.id})`);
+    // Future: await emailService.sendPasswordReset(profile.email, resetToken);
 
     return reply.send({
       success: true,
