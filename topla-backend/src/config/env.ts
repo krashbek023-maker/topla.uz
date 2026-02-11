@@ -44,6 +44,10 @@ const envSchema = z.object({
   PAYME_WEBHOOK_SECRET: z.string().optional(),
   CLICK_WEBHOOK_SECRET: z.string().optional(),
 
+  // Meilisearch
+  MEILISEARCH_URL: z.string().default('http://localhost:7700'),
+  MEILISEARCH_API_KEY: z.string().default('topla_meili_master_key'),
+
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
   LOG_LEVEL: z.string().default('info'),

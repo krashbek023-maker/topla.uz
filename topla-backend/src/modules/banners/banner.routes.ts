@@ -31,7 +31,7 @@ export async function bannerRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [authMiddleware, requireRole('admin')] },
     async (request, reply) => {
       const body = createBannerSchema.parse(request.body);
-      const banner = await prisma.banner.create({ data: body });
+      const banner = await prisma.banner.create({ data: body as any });
       return reply.status(201).send({ success: true, data: banner });
     },
   );

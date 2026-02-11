@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../../config/database.js';
 import { authMiddleware, requireRole, optionalAuth } from '../../middleware/auth.js';
 import { AppError, NotFoundError } from '../../middleware/error.js';
+import { validateProduct, calculateQualityScore } from '../../services/product-validation.service.js';
+import { indexProduct, removeProductFromIndex, searchProducts } from '../../services/search.service.js';
 
 // ============================================
 // Validation Schemas
@@ -10,7 +12,11 @@ import { AppError, NotFoundError } from '../../middleware/error.js';
 
 const createProductSchema = z.object({
   name: z.string().min(2).max(200),
+  nameUz: z.string().min(3).max(200).optional(),
+  nameRu: z.string().min(3).max(200).optional(),
   description: z.string().optional(),
+  descriptionUz: z.string().optional(),
+  descriptionRu: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   subcategoryId: z.string().uuid().optional(),
   brandId: z.string().uuid().optional(),
@@ -22,6 +28,8 @@ const createProductSchema = z.object({
   stock: z.number().int().min(0).default(0),
   unit: z.string().default('dona'),
   minOrder: z.number().int().min(1).default(1),
+  sku: z.string().optional(),
+  weight: z.number().optional(),
 });
 
 const updateProductSchema = createProductSchema.partial();
@@ -59,7 +67,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
   app.get('/products', { preHandler: optionalAuth }, async (request, reply) => {
     const filters = productFilterSchema.parse(request.query);
 
-    const where: any = { isActive: true };
+    const where: any = { isActive: true, status: 'active' };
 
     if (filters.categoryId) where.categoryId = filters.categoryId;
     if (filters.subcategoryId) where.subcategoryId = filters.subcategoryId;
@@ -490,20 +498,88 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
 
       if (!shop) throw new AppError('Do\'kon topilmadi');
 
+      // Auto-moderation: validate product data
+      const validation = validateProduct({
+        nameUz: body.nameUz || body.name,
+        nameRu: body.nameRu || body.name,
+        descriptionUz: body.descriptionUz || body.description || '',
+        descriptionRu: body.descriptionRu || body.description || '',
+        images: body.images,
+        price: body.price,
+        categoryId: body.categoryId,
+        stock: body.stock,
+      });
+
+      const qualityScore = calculateQualityScore({
+        nameUz: body.nameUz || body.name,
+        nameRu: body.nameRu || body.name,
+        descriptionUz: body.descriptionUz || body.description || '',
+        descriptionRu: body.descriptionRu || body.description || '',
+        images: body.images,
+        price: body.price,
+        originalPrice: body.originalPrice,
+        categoryId: body.categoryId,
+        brandId: body.brandId,
+        colorId: body.colorId,
+        sku: body.sku,
+        weight: body.weight,
+        stock: body.stock,
+      });
+
+      // Determine status based on validation
+      const status = validation.isValid ? 'active' : 'has_errors';
+
       const { categoryId, subcategoryId, brandId, colorId, ...restBody } = body;
 
       const product = await prisma.product.create({
         data: {
           ...restBody,
+          nameUz: body.nameUz || body.name,
+          nameRu: body.nameRu || body.name,
+          descriptionUz: body.descriptionUz || body.description || null,
+          descriptionRu: body.descriptionRu || body.description || null,
+          status,
+          qualityScore,
+          validationErrors: validation.isValid ? [] : validation.errors.map(e => e.message),
+          thumbnailUrl: body.images?.[0] || null,
+          moderatedAt: new Date(),
           shop: { connect: { id: shop.id } },
           ...(categoryId && { category: { connect: { id: categoryId } } }),
           ...(subcategoryId && { subcategory: { connect: { id: subcategoryId } } }),
           ...(brandId && { brand: { connect: { id: brandId } } }),
           ...(colorId && { color: { connect: { id: colorId } } }),
         } as any,
+        include: {
+          category: { select: { id: true, nameUz: true, nameRu: true } },
+          shop: { select: { id: true, name: true } },
+        },
       });
 
-      return reply.status(201).send({ success: true, data: product });
+      // Index in Meilisearch if active
+      if (status === 'active') {
+        try { await indexProduct(product); } catch (e) { /* non-blocking */ }
+      }
+
+      // Create moderation log
+      await prisma.productModerationLog.create({
+        data: {
+          productId: product.id,
+          action: status === 'active' ? 'auto_approved' : 'auto_rejected',
+          reason: status === 'active' 
+            ? `Avtomatik tasdiqlandi. Sifat balli: ${qualityScore}/100`
+            : `Xatoliklar topildi: ${validation.errors.map(e => e.message).join(', ')}`,
+        },
+      });
+
+      return reply.status(201).send({
+        success: true,
+        data: {
+          ...product,
+          qualityScore,
+          validationErrors: validation.errors,
+          moderationStatus: status,
+        },
+      });
     },
   );
 
@@ -529,12 +605,74 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
 
       if (!product) throw new NotFoundError('Mahsulot');
 
+      // Merge existing data with updates for validation
+      const merged = {
+        nameUz: body.nameUz || body.name || (product as any).nameUz || product.name,
+        nameRu: body.nameRu || body.name || (product as any).nameRu || product.name,
+        descriptionUz: body.descriptionUz || body.description || (product as any).descriptionUz || product.description || '',
+        descriptionRu: body.descriptionRu || body.description || (product as any).descriptionRu || product.description || '',
+        images: body.images || product.images as string[],
+        price: body.price || Number(product.price),
+        categoryId: body.categoryId || product.categoryId,
+        stock: body.stock ?? product.stock,
+        originalPrice: body.originalPrice || (product.originalPrice ? Number(product.originalPrice) : undefined),
+        brandId: body.brandId || product.brandId,
+        colorId: body.colorId || product.colorId,
+        sku: body.sku || (product as any).sku,
+        weight: body.weight || (product as any).weight,
+      };
+
+      const validation = validateProduct(merged);
+      const qualityScore = calculateQualityScore(merged);
+      const status = validation.isValid ? 'active' : 'has_errors';
+
       const updated = await prisma.product.update({
         where: { id },
-        data: body,
+        data: {
+          ...body,
+          nameUz: merged.nameUz,
+          nameRu: merged.nameRu,
+          descriptionUz: merged.descriptionUz || null,
+          descriptionRu: merged.descriptionRu || null,
+          status,
+          qualityScore,
+          validationErrors: validation.isValid ? [] : validation.errors.map(e => e.message),
+          thumbnailUrl: merged.images?.[0] || (product as any).thumbnailUrl,
+          moderatedAt: new Date(),
+        } as any,
+        include: {
+          category: { select: { id: true, nameUz: true, nameRu: true } },
+          shop: { select: { id: true, name: true } },
+        },
       });
 
-      return reply.send({ success: true, data: updated });
+      // Update Meilisearch index
+      try {
+        if (status === 'active') {
+          await indexProduct(updated);
+        } else {
+          await removeProductFromIndex(id);
+        }
+      } catch (e) { /* non-blocking */ }
+
+      // Create moderation log
+      await prisma.productModerationLog.create({
+        data: {
+          productId: id,
+          action: 'revalidated',
+          reason: `Qayta tekshirildi. Status: ${status}, Sifat: ${qualityScore}/100`,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          ...updated,
+          qualityScore,
+          validationErrors: validation.errors,
+          moderationStatus: status,
+        },
+      });
     },
   );
 
@@ -556,6 +694,9 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
       await prisma.product.deleteMany({
         where: { id, shopId: shop.id },
       });
+
+      // Remove from search index
+      try { await removeProductFromIndex(id); } catch (e) { /* non-blocking */ }
 
       return reply.send({ success: true });
     },

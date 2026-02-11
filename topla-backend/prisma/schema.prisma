@@ -1,6 +1,7 @@
 // ============================================
 // TOPLA Database Schema
-// Yandex Go-style Marketplace + Delivery
+// Yandex Market-style Marketplace + Delivery
+// Auto-moderation + Quality Score System
 // ============================================
 
 generator client {
@@ -62,6 +63,9 @@ model Profile {
   courier         Courier?
   deliveryRatings DeliveryRating[]
   promoUsages     PromoCodeUsage[]
+  chatRoomsAsCustomer ChatRoom[] @relation("CustomerChats")
+  chatMessages    ChatMessage[]
+  moderationLogs  ProductModerationLog[]
 
   @@map("profiles")
 }
@@ -119,40 +123,49 @@ enum ShopStatus {
   blocked
 }
 
+enum FulfillmentType {
+  FBS   // Fulfilled by Seller
+  DBS   // Delivery by Seller
+}
+
 model Shop {
-  id             String     @id @default(uuid()) @db.Uuid
-  ownerId        String     @unique @map("owner_id") @db.Uuid
+  id             String          @id @default(uuid()) @db.Uuid
+  ownerId        String          @unique @map("owner_id") @db.Uuid
   name           String
+  slug           String?         @unique
   description    String?
-  logoUrl        String?    @map("logo_url")
-  bannerUrl      String?    @map("banner_url")
+  logoUrl        String?         @map("logo_url")
+  bannerUrl      String?         @map("banner_url")
   phone          String?
+  email          String?
+  website        String?
   address        String?
   latitude       Float?
   longitude      Float?
-  status         ShopStatus @default(pending)
-  rating         Float      @default(0)
-  reviewCount    Int        @default(0) @map("review_count")
-  totalSales     Int        @default(0) @map("total_sales")
-  balance        Decimal    @default(0) @db.Decimal(12, 2)
-  commissionRate Decimal    @default(10) @map("commission_rate") @db.Decimal(5, 2)
+  status         ShopStatus      @default(pending)
+  fulfillmentType FulfillmentType @default(FBS) @map("fulfillment_type")
+  rating         Float           @default(0)
+  reviewCount    Int             @default(0) @map("review_count")
+  totalSales     Int             @default(0) @map("total_sales")
+  balance        Decimal         @default(0) @db.Decimal(12, 2)
+  commissionRate Decimal         @default(10) @map("commission_rate") @db.Decimal(5, 2)
   
   // Social links
   telegram       String?
   instagram      String?
   
   // Working hours
-  workingHours   Json?      @map("working_hours") // {"mon": {"open": "09:00", "close": "18:00"}, ...}
-  isOpen         Boolean    @default(true) @map("is_open")
+  workingHours   Json?           @map("working_hours")
+  isOpen         Boolean         @default(true) @map("is_open")
   
   // Delivery settings
-  minOrderAmount   Decimal?   @default(0) @map("min_order_amount") @db.Decimal(12, 2)
-  deliveryFee      Decimal?   @default(0) @map("delivery_fee") @db.Decimal(12, 2)
-  freeDeliveryFrom Decimal?   @map("free_delivery_from") @db.Decimal(12, 2)
-  deliveryRadius   Float?     @map("delivery_radius") // km
+  minOrderAmount   Decimal?      @default(0) @map("min_order_amount") @db.Decimal(12, 2)
+  deliveryFee      Decimal?      @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  freeDeliveryFrom Decimal?      @map("free_delivery_from") @db.Decimal(12, 2)
+  deliveryRadius   Float?        @map("delivery_radius")
   
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
   owner        Profile          @relation(fields: [ownerId], references: [id])
   products     Product[]
@@ -160,6 +173,7 @@ model Shop {
   orderItems   OrderItem[]
   payouts      Payout[]
   transactions VendorTransaction[]
+  chatRooms    ChatRoom[]
 
   @@map("shops")
 }
@@ -180,8 +194,17 @@ model ShopReview {
 }
 
 // ============================================
-// 4. PRODUCTS
+// 4. PRODUCTS (Yandex Market auto-moderation)
 // ============================================
+
+enum ProductStatus {
+  draft          // Vendor hali tugatmagan (qoralama)
+  on_review      // Avtomatik tekshiruvda
+  active         // Tekshiruvdan o'tdi, saytda ko'rinadi
+  has_errors     // Xatolar topildi, vendor tuzatishi kerak
+  blocked        // Admin/tizim bloklagan
+  hidden         // Vendor o'zi yashirgan
+}
 
 model Category {
   id           String   @id @default(uuid()) @db.Uuid
@@ -232,36 +255,59 @@ model Color {
 }
 
 model Product {
-  id             String   @id @default(uuid()) @db.Uuid
-  shopId         String   @map("shop_id") @db.Uuid
-  categoryId     String?  @map("category_id") @db.Uuid
-  subcategoryId  String?  @map("subcategory_id") @db.Uuid
-  brandId        String?  @map("brand_id") @db.Uuid
-  colorId        String?  @map("color_id") @db.Uuid
+  id             String        @id @default(uuid()) @db.Uuid
+  shopId         String        @map("shop_id") @db.Uuid
+  categoryId     String?       @map("category_id") @db.Uuid
+  subcategoryId  String?       @map("subcategory_id") @db.Uuid
+  brandId        String?       @map("brand_id") @db.Uuid
+  colorId        String?       @map("color_id") @db.Uuid
   
+  // Multilingual fields
+  nameUz         String        @map("name_uz")
+  nameRu         String?       @map("name_ru")
+  descriptionUz  String?       @map("description_uz")
+  descriptionRu  String?       @map("description_ru")
+  
+  // Legacy single-language (kept for migration compatibility)
   name           String
   description    String?
-  price          Decimal  @db.Decimal(12, 2)
-  originalPrice  Decimal? @map("original_price") @db.Decimal(12, 2)
-  discountPercent Int?    @map("discount_percent")
   
-  images         String[] // Array of image URLs
+  // Pricing
+  price          Decimal       @db.Decimal(12, 2)
+  originalPrice  Decimal?      @map("original_price") @db.Decimal(12, 2)
+  discountPercent Int?         @map("discount_percent")
   
-  stock          Int      @default(0)
-  unit           String   @default("dona") // dona, kg, litr, metr
-  minOrder       Int      @default(1) @map("min_order")
+  // Media
+  images         String[]
+  thumbnailUrl   String?       @map("thumbnail_url")
   
-  isActive       Boolean  @default(true) @map("is_active")
-  isFeatured     Boolean  @default(false) @map("is_featured")
-  isFlashSale    Boolean  @default(false) @map("is_flash_sale")
-  flashSaleEnd   DateTime? @map("flash_sale_end")
+  // Inventory
+  stock          Int           @default(0)
+  unit           String        @default("dona") // dona, kg, litr, metr
+  minOrder       Int           @default(1) @map("min_order")
+  sku            String?       // vendor internal product code
+  weight         Decimal?      @db.Decimal(8, 2) // kg
   
-  viewCount      Int      @default(0) @map("view_count")
-  salesCount     Int      @default(0) @map("sales_count")
-  rating         Float    @default(0)
+  // Moderation (Yandex Market style)
+  status           ProductStatus @default(draft)
+  qualityScore     Int           @default(0) @map("quality_score") // 0-100
+  validationErrors Json?         @map("validation_errors") // [{field, message}]
+  moderatedAt      DateTime?     @map("moderated_at")
+  moderatedBy      String?       @map("moderated_by") @db.Uuid
   
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  // Flags
+  isActive       Boolean       @default(true) @map("is_active")
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  isFlashSale    Boolean       @default(false) @map("is_flash_sale")
+  flashSaleEnd   DateTime?     @map("flash_sale_end")
+  
+  // Stats
+  viewCount      Int           @default(0) @map("view_count")
+  salesCount     Int           @default(0) @map("sales_count")
+  rating         Float         @default(0)
+  
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   shop          Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   category      Category?     @relation(fields: [categoryId], references: [id])
@@ -271,10 +317,13 @@ model Product {
   cartItems     CartItem[]
   orderItems    OrderItem[]
   favorites     Favorite[]
+  moderationLogs ProductModerationLog[]
 
   @@index([shopId])
   @@index([categoryId])
   @@index([price])
+  @@index([status])
+  @@index([qualityScore(sort: Desc)])
   @@index([isActive, isFeatured])
   @@map("products")
 }
@@ -733,4 +782,87 @@ model DeliveryZone {
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("delivery_zones")
+}
+
+// ============================================
+// 13. PRODUCT MODERATION LOG
+// ============================================
+
+model ProductModerationLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  adminId   String?  @map("admin_id") @db.Uuid
+  action    String   // auto_approved, auto_rejected, admin_blocked, admin_unblocked
+  reason    String?
+  errors    Json?    // validation errors snapshot
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  admin   Profile? @relation(fields: [adminId], references: [id])
+
+  @@index([productId, createdAt(sort: Desc)])
+  @@map("product_moderation_logs")
+}
+
+// ============================================
+// 14. CHAT SYSTEM (Customer <-> Vendor)
+// ============================================
+
+enum ChatRoomStatus {
+  active
+  closed
+}
+
+model ChatRoom {
+  id           String         @id @default(uuid()) @db.Uuid
+  customerId   String         @map("customer_id") @db.Uuid
+  shopId       String         @map("shop_id") @db.Uuid
+  status       ChatRoomStatus @default(active)
+  lastMessageAt DateTime?     @map("last_message_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  customer Profile     @relation("CustomerChats", fields: [customerId], references: [id], onDelete: Cascade)
+  shop     Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@unique([customerId, shopId])
+  @@index([shopId, lastMessageAt(sort: Desc)])
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  roomId    String   @map("room_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  senderRole String  @map("sender_role") // user, vendor
+  message   String?
+  imageUrl  String?  @map("image_url")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender Profile  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@map("chat_messages")
+}
+
+// ============================================
+// 15. ACTIVITY LOGS (Admin actions)
+// ============================================
+
+model ActivityLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   // product.block, shop.approve, user.block, etc.
+  entityType String   @map("entity_type") // product, shop, user, order
+  entityId   String?  @map("entity_id") @db.Uuid
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([action, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@map("activity_logs")
 }

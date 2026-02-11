@@ -23,6 +23,10 @@ import { bannerRoutes } from './modules/banners/banner.routes.js';
 import { uploadRoutes } from './modules/upload/upload.routes.js';
 import { vendorRoutes } from './modules/vendor/vendor.routes.js';
 import { paymentRoutes } from './modules/payments/payment.routes.js';
+import { adminRoutes } from './modules/admin/admin.routes.js';
+import { chatRoutes } from './modules/chat/chat.routes.js';
+import { initRedis } from './config/redis.js';
+import { initMeilisearch } from './services/search.service.js';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 
@@ -105,6 +109,8 @@ await app.register(
     await api.register(uploadRoutes);
     await api.register(vendorRoutes);
     await api.register(paymentRoutes);
+    await api.register(adminRoutes);
+    await api.register(chatRoutes);
   },
   { prefix: '/api/v1' },
 );
@@ -118,19 +124,25 @@ async function start(): Promise<void> {
     // 1. Database
     await connectDatabase();
 
-    // 2. Firebase (push notifications)
+    // 2. Redis (cache, OTP, rate limiting)
+    await initRedis();
+
+    // 3. Firebase (push notifications)
     initFirebase();
 
-    // 3. S3 Storage
+    // 4. S3 Storage
     initStorage();
 
-    // 4. Start HTTP server
+    // 5. Meilisearch (product search)
+    await initMeilisearch();
+
+    // 6. Start HTTP server
     const address = await app.listen({
       port: env.PORT,
       host: '0.0.0.0', // Force listen on all interfaces
     });
 
-    // 5. WebSocket (Socket.IO) — same HTTP server
+    // 7. WebSocket (Socket.IO) — same HTTP server
     const httpServer = app.server as any;
     initWebSocket(httpServer);
 
