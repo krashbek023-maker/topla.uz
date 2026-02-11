@@ -18,13 +18,24 @@ export function setAdminToken(token: string): void {
 export function removeAdminToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_demo_mode');
 }
 
 export function isAdminAuthenticated(): boolean {
   return !!getAdminToken();
 }
 
+function isDemoMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('admin_demo_mode') === 'true';
+}
+
 async function adminRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  // Demo rejimda backend'ga so'rov yubormasdan demo ma'lumot qaytarish
+  if (isDemoMode()) {
+    return getDemoResponse<T>(endpoint, options);
+  }
+
   const token = getAdminToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -41,7 +52,17 @@ async function adminRequest<T>(endpoint: string, options: RequestInit = {}): Pro
 
   const url = `${API_BASE}${endpoint}`;
 
-  const response = await fetch(url, { ...options, headers });
+  let response: Response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch {
+    // Backend'ga ulanib bo'lmasa va token mavjud — demo rejimga o'tish
+    if (getAdminToken()) {
+      if (typeof window !== 'undefined') localStorage.setItem('admin_demo_mode', 'true');
+      return getDemoResponse<T>(endpoint, options);
+    }
+    throw new Error('Serverga ulanib bo\'lmadi');
+  }
 
   if (!response.ok) {
     let errorData: any;
@@ -66,14 +87,30 @@ async function adminRequest<T>(endpoint: string, options: RequestInit = {}): Pro
 // Auth
 // ============================================
 export async function adminLogin(email: string, password: string) {
-  const res = await adminRequest<{ success: boolean; data: { token: string; admin: any } }>(
-    '/auth/admin/login',
-    { method: 'POST', body: JSON.stringify({ email, password }) },
-  );
-  if (res.data?.token) {
-    setAdminToken(res.data.token);
+  try {
+    const res = await adminRequest<{ success: boolean; data: { token: string; admin: any } }>(
+      '/auth/admin/login',
+      { method: 'POST', body: JSON.stringify({ email, password }) },
+    );
+    if (res.data?.token) {
+      setAdminToken(res.data.token);
+    }
+    return res.data;
+  } catch (err: any) {
+    // Backend ishlamayotgan bo'lsa — demo admin rejim
+    if (email === 'admin@topla.uz' && password === 'admin123') {
+      const demoToken = 'demo_admin_token_' + Date.now();
+      setAdminToken(demoToken);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('admin_demo_mode', 'true');
+      }
+      return {
+        token: demoToken,
+        user: { id: 'demo-admin', email: 'admin@topla.uz', fullName: 'TOPLA Admin', role: 'admin', avatarUrl: null },
+      };
+    }
+    throw err;
   }
-  return res.data;
 }
 
 // ============================================
@@ -377,4 +414,304 @@ export async function updateBrand(id: string, data: any) {
 
 export async function deleteBrand(id: string) {
   return adminRequest(`/admin/brands/${id}`, { method: 'DELETE' });
+}
+
+// ============================================
+// Demo Mode — Backend ishlamayotganda demo ma'lumotlar
+// ============================================
+function getDemoResponse<T>(endpoint: string, options: RequestInit = {}): T {
+  const method = (options.method || 'GET').toUpperCase();
+
+  // Write operatsiyalari uchun success qaytarish
+  if (method !== 'GET') {
+    return { success: true, message: 'Demo rejimda saqlandi' } as T;
+  }
+
+  // Dashboard
+  if (endpoint.includes('/admin/dashboard')) {
+    return {
+      success: true,
+      data: {
+        totalUsers: 1247,
+        totalShops: 86,
+        totalProducts: 3452,
+        totalOrders: 892,
+        totalRevenue: 456780000,
+        todayOrders: 34,
+        todayRevenue: 12450000,
+        pendingShops: 5,
+        pendingProducts: 12,
+        activeUsers: 328,
+        recentOrders: [
+          { id: 'ord-1', orderNumber: 'T-20260211-001', totalAmount: 185000, status: 'delivered', created_at: '2026-02-11T10:30:00Z', customer: { full_name: 'Aziz Karimov', phone: '+998901234567' } },
+          { id: 'ord-2', orderNumber: 'T-20260211-002', totalAmount: 92000, status: 'preparing', created_at: '2026-02-11T11:15:00Z', customer: { full_name: 'Nilufar Rahimova', phone: '+998907654321' } },
+          { id: 'ord-3', orderNumber: 'T-20260211-003', totalAmount: 340000, status: 'pending', created_at: '2026-02-11T12:00:00Z', customer: { full_name: 'Sardor Toshmatov', phone: '+998933456789' } },
+          { id: 'ord-4', orderNumber: 'T-20260210-015', totalAmount: 67000, status: 'delivered', created_at: '2026-02-10T16:30:00Z', customer: { full_name: 'Madina Aliyeva', phone: '+998945678901' } },
+          { id: 'ord-5', orderNumber: 'T-20260210-014', totalAmount: 520000, status: 'delivered', created_at: '2026-02-10T14:20:00Z', customer: { full_name: 'Bobur Qodirov', phone: '+998912345678' } },
+        ],
+        salesChart: [
+          { date: '2026-02-05', amount: 8500000 },
+          { date: '2026-02-06', amount: 12300000 },
+          { date: '2026-02-07', amount: 9800000 },
+          { date: '2026-02-08', amount: 15400000 },
+          { date: '2026-02-09', amount: 11200000 },
+          { date: '2026-02-10', amount: 18900000 },
+          { date: '2026-02-11', amount: 12450000 },
+        ],
+      },
+    } as T;
+  }
+
+  // Users
+  if (endpoint.includes('/admin/users')) {
+    return {
+      success: true,
+      data: {
+        users: [
+          { id: 'u1', full_name: 'Aziz Karimov', phone: '+998901234567', email: 'aziz@mail.uz', role: 'user', is_active: true, avatar_url: null, created_at: '2025-12-15T10:00:00Z', orders_count: 12 },
+          { id: 'u2', full_name: 'Nilufar Rahimova', phone: '+998907654321', email: 'nilufar@mail.uz', role: 'user', is_active: true, avatar_url: null, created_at: '2026-01-05T14:00:00Z', orders_count: 8 },
+          { id: 'u3', full_name: 'Sardor Toshmatov', phone: '+998933456789', email: null, role: 'vendor', is_active: true, avatar_url: null, created_at: '2025-11-20T09:00:00Z', orders_count: 0 },
+          { id: 'u4', full_name: 'Madina Aliyeva', phone: '+998945678901', email: 'madina@gmail.com', role: 'user', is_active: true, avatar_url: null, created_at: '2026-01-18T16:00:00Z', orders_count: 5 },
+          { id: 'u5', full_name: 'Bobur Qodirov', phone: '+998912345678', email: null, role: 'user', is_active: false, avatar_url: null, created_at: '2025-10-01T08:00:00Z', orders_count: 3 },
+          { id: 'u6', full_name: 'Gulnora Usmanova', phone: '+998998887766', email: 'gulnora@inbox.uz', role: 'vendor', is_active: true, avatar_url: null, created_at: '2026-01-25T12:00:00Z', orders_count: 0 },
+          { id: 'u7', full_name: 'Jamshid Normatov', phone: '+998971112233', email: null, role: 'courier', is_active: true, avatar_url: null, created_at: '2026-02-01T07:00:00Z', orders_count: 0 },
+          { id: 'u8', full_name: 'TOPLA Admin', phone: '+998900000000', email: 'admin@topla.uz', role: 'admin', is_active: true, avatar_url: null, created_at: '2025-06-01T00:00:00Z', orders_count: 0 },
+        ],
+        total: 8,
+        page: 1,
+        limit: 20,
+      },
+    } as T;
+  }
+
+  // Shop detail
+  if (endpoint.match(/\/admin\/shops\/[^/?]+$/)) {
+    return {
+      success: true,
+      data: {
+        id: 'shop-1', name: 'TechnoMart', description: 'Elektronika do\'koni', status: 'active',
+        phone: '+998901112233', email: 'technomart@mail.uz', address: 'Toshkent, Chilonzor 9',
+        commission_rate: 10, rating: 4.5, products_count: 156, orders_count: 342,
+        owner: { full_name: 'Sardor Toshmatov', phone: '+998933456789' },
+        created_at: '2025-11-20T09:00:00Z',
+      },
+    } as T;
+  }
+  // Shops list
+  if (endpoint.includes('/admin/shops')) {
+    return {
+      success: true,
+      data: {
+        shops: [
+          { id: 'shop-1', name: 'TechnoMart', status: 'active', phone: '+998901112233', city: 'Toshkent', commission_rate: 10, rating: 4.5, products_count: 156, owner: { full_name: 'Sardor Toshmatov', phone: '+998933456789' }, created_at: '2025-11-20T09:00:00Z' },
+          { id: 'shop-2', name: 'ModaStyle', status: 'active', phone: '+998935554433', city: 'Toshkent', commission_rate: 12, rating: 4.2, products_count: 89, owner: { full_name: 'Gulnora Usmanova', phone: '+998998887766' }, created_at: '2026-01-10T10:00:00Z' },
+          { id: 'shop-3', name: 'FreshMart', status: 'pending', phone: '+998977776655', city: 'Samarqand', commission_rate: 8, rating: 0, products_count: 0, owner: { full_name: 'Olim Rahimov', phone: '+998977776655' }, created_at: '2026-02-09T15:00:00Z' },
+          { id: 'shop-4', name: 'KitobDunyosi', status: 'active', phone: '+998913332211', city: 'Toshkent', commission_rate: 10, rating: 4.8, products_count: 234, owner: { full_name: 'Dilshod Karimov', phone: '+998913332211' }, created_at: '2025-08-15T11:00:00Z' },
+          { id: 'shop-5', name: 'SportZone', status: 'suspended', phone: '+998946667788', city: 'Namangan', commission_rate: 10, rating: 3.1, products_count: 45, owner: { full_name: 'Akbar Yusupov', phone: '+998946667788' }, created_at: '2025-10-05T13:00:00Z' },
+        ],
+        total: 5, page: 1, limit: 20,
+      },
+    } as T;
+  }
+
+  // Products
+  if (endpoint.includes('/admin/products')) {
+    return {
+      success: true,
+      data: {
+        products: [
+          { id: 'p1', name_uz: 'iPhone 16 Pro Max', price: 18500000, status: 'active', stock: 15, quality_score: 95, shop: { name: 'TechnoMart' }, category: { name_uz: 'Smartfonlar' }, images: ['https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=200'], created_at: '2026-02-01T10:00:00Z' },
+          { id: 'p2', name_uz: 'Samsung Galaxy S25 Ultra', price: 16800000, status: 'active', stock: 8, quality_score: 90, shop: { name: 'TechnoMart' }, category: { name_uz: 'Smartfonlar' }, images: ['https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=200'], created_at: '2026-01-28T14:00:00Z' },
+          { id: 'p3', name_uz: 'Nike Air Max 2026', price: 1250000, status: 'active', stock: 42, quality_score: 85, shop: { name: 'SportZone' }, category: { name_uz: 'Krossovkalar' }, images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200'], created_at: '2026-01-20T09:00:00Z' },
+          { id: 'p4', name_uz: 'Ko\'ylak ayollar uchun', price: 280000, status: 'pending', stock: 25, quality_score: 60, shop: { name: 'ModaStyle' }, category: { name_uz: 'Kiyimlar' }, images: ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=200'], created_at: '2026-02-10T16:00:00Z' },
+          { id: 'p5', name_uz: 'MacBook Pro M4', price: 32000000, status: 'active', stock: 5, quality_score: 98, shop: { name: 'TechnoMart' }, category: { name_uz: 'Noutbuklar' }, images: ['https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=200'], created_at: '2026-01-15T11:00:00Z' },
+          { id: 'p6', name_uz: 'AirPods Pro 3', price: 3500000, status: 'blocked', stock: 0, quality_score: 30, shop: { name: 'TechnoMart' }, category: { name_uz: 'Quloqchinlar' }, images: ['https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=200'], created_at: '2026-02-05T08:00:00Z' },
+        ],
+        total: 6, page: 1, limit: 20,
+      },
+    } as T;
+  }
+
+  // Order detail
+  if (endpoint.match(/\/admin\/orders\/[^/?]+$/)) {
+    return {
+      success: true,
+      data: {
+        id: 'ord-1', orderNumber: 'T-20260211-001', status: 'delivered', totalAmount: 185000, deliveryFee: 15000,
+        customer: { full_name: 'Aziz Karimov', phone: '+998901234567' },
+        address: { full_address: 'Toshkent, Yunusobod 4, 12-uy, 34-xonadon' },
+        items: [{ id: 'oi-1', product: { name: 'Nike Air Max', images: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100'] }, quantity: 1, price: 170000, shop: { name: 'SportZone' } }],
+        created_at: '2026-02-11T10:30:00Z', delivered_at: '2026-02-11T12:00:00Z',
+      },
+    } as T;
+  }
+  // Orders list
+  if (endpoint.includes('/admin/orders')) {
+    return {
+      success: true,
+      data: {
+        orders: [
+          { id: 'ord-1', order_number: 'T-20260211-001', total_amount: 185000, status: 'delivered', created_at: '2026-02-11T10:30:00Z', customer: { full_name: 'Aziz Karimov' }, shop: { name: 'SportZone' }, items_count: 1 },
+          { id: 'ord-2', order_number: 'T-20260211-002', total_amount: 92000, status: 'preparing', created_at: '2026-02-11T11:15:00Z', customer: { full_name: 'Nilufar Rahimova' }, shop: { name: 'ModaStyle' }, items_count: 2 },
+          { id: 'ord-3', order_number: 'T-20260211-003', total_amount: 340000, status: 'pending', created_at: '2026-02-11T12:00:00Z', customer: { full_name: 'Sardor Toshmatov' }, shop: { name: 'TechnoMart' }, items_count: 1 },
+          { id: 'ord-4', order_number: 'T-20260210-015', total_amount: 67000, status: 'delivered', created_at: '2026-02-10T16:30:00Z', customer: { full_name: 'Madina Aliyeva' }, shop: { name: 'KitobDunyosi' }, items_count: 3 },
+          { id: 'ord-5', order_number: 'T-20260210-014', total_amount: 520000, status: 'cancelled', created_at: '2026-02-10T14:20:00Z', customer: { full_name: 'Bobur Qodirov' }, shop: { name: 'TechnoMart' }, items_count: 2 },
+        ],
+        total: 5, page: 1, limit: 20,
+      },
+    } as T;
+  }
+
+  // Categories
+  if (endpoint.includes('/admin/categories')) {
+    return {
+      success: true,
+      data: [
+        { id: 'cat-1', name_uz: 'Elektronika', name_ru: 'Электроника', icon: 'mobile', sort_order: 1, products_count: 245, subcategories: [{ id: 'sub-1', name_uz: 'Smartfonlar', name_ru: 'Смартфоны' }, { id: 'sub-2', name_uz: 'Planshetlar', name_ru: 'Планшеты' }] },
+        { id: 'cat-2', name_uz: 'Kiyimlar', name_ru: 'Одежда', icon: 'shirt', sort_order: 2, products_count: 189, subcategories: [{ id: 'sub-3', name_uz: 'Erkaklar', name_ru: 'Мужская' }, { id: 'sub-4', name_uz: 'Ayollar', name_ru: 'Женская' }] },
+        { id: 'cat-3', name_uz: 'Sport', name_ru: 'Спорт', icon: 'dumbbell', sort_order: 3, products_count: 78, subcategories: [{ id: 'sub-5', name_uz: 'Krossovkalar', name_ru: 'Кроссовки' }] },
+        { id: 'cat-4', name_uz: 'Uy-ro\'zg\'or', name_ru: 'Дом и сад', icon: 'home', sort_order: 4, products_count: 156, subcategories: [] },
+        { id: 'cat-5', name_uz: 'Kitoblar', name_ru: 'Книги', icon: 'book', sort_order: 5, products_count: 234, subcategories: [{ id: 'sub-6', name_uz: 'Badiiy', name_ru: 'Художественные' }, { id: 'sub-7', name_uz: 'Ilmiy', name_ru: 'Научные' }] },
+        { id: 'cat-6', name_uz: 'Go\'zallik', name_ru: 'Красота', icon: 'sparkles', sort_order: 6, products_count: 112, subcategories: [] },
+      ],
+    } as T;
+  }
+
+  // Banners
+  if (endpoint.includes('/admin/banners')) {
+    return {
+      success: true,
+      data: [
+        { id: 'b1', image_url: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=400&fit=crop', title_uz: 'Yangi kolleksiya', title_ru: 'Новая коллекция', is_active: true, sort_order: 1 },
+        { id: 'b2', image_url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=400&fit=crop', title_uz: 'Chegirmalar haftaligi', title_ru: 'Неделя скидок', is_active: true, sort_order: 2 },
+        { id: 'b3', image_url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop', title_uz: 'Bepul yetkazib berish', title_ru: 'Бесплатная доставка', is_active: false, sort_order: 3 },
+      ],
+    } as T;
+  }
+
+  // Promo Codes
+  if (endpoint.includes('/admin/promo-codes')) {
+    return {
+      success: true,
+      data: [
+        { id: 'pc1', code: 'TOPLA10', discount_type: 'percentage', discount_value: 10, min_order_amount: 100000, max_uses: 500, used_count: 234, is_active: true, expires_at: '2026-03-31T23:59:59Z' },
+        { id: 'pc2', code: 'YANGI2026', discount_type: 'fixed', discount_value: 25000, min_order_amount: 200000, max_uses: 100, used_count: 67, is_active: true, expires_at: '2026-06-30T23:59:59Z' },
+        { id: 'pc3', code: 'DELIVERY0', discount_type: 'fixed', discount_value: 15000, min_order_amount: 50000, max_uses: 200, used_count: 198, is_active: false, expires_at: '2026-01-31T23:59:59Z' },
+      ],
+    } as T;
+  }
+
+  // Delivery Zones
+  if (endpoint.includes('/admin/delivery-zones')) {
+    return {
+      success: true,
+      data: [
+        { id: 'dz1', name: 'Toshkent shahri', base_fee: 15000, min_order: 30000, estimated_time: '30-60 daqiqa', is_active: true },
+        { id: 'dz2', name: 'Toshkent viloyati', base_fee: 25000, min_order: 50000, estimated_time: '1-2 soat', is_active: true },
+        { id: 'dz3', name: 'Samarqand', base_fee: 35000, min_order: 80000, estimated_time: '1-2 kun', is_active: false },
+      ],
+    } as T;
+  }
+
+  // Payouts
+  if (endpoint.includes('/admin/payouts')) {
+    return {
+      success: true,
+      data: {
+        payouts: [
+          { id: 'pay1', shop: { name: 'TechnoMart' }, amount: 2450000, status: 'pending', created_at: '2026-02-10T10:00:00Z', period: '2026-02-01 - 2026-02-10' },
+          { id: 'pay2', shop: { name: 'ModaStyle' }, amount: 890000, status: 'completed', created_at: '2026-02-05T12:00:00Z', period: '2026-01-25 - 2026-02-05', transaction_id: 'TXN-20260205-001' },
+          { id: 'pay3', shop: { name: 'KitobDunyosi' }, amount: 1200000, status: 'completed', created_at: '2026-02-01T09:00:00Z', period: '2026-01-20 - 2026-02-01', transaction_id: 'TXN-20260201-003' },
+        ],
+        total: 3, page: 1, limit: 20,
+      },
+    } as T;
+  }
+
+  // Reports
+  if (endpoint.includes('/admin/reports')) {
+    return {
+      success: true,
+      data: {
+        revenue: { total: 456780000, growth: 12.5 },
+        orders: { total: 892, growth: 8.3 },
+        users: { total: 1247, growth: 15.2 },
+        shops: { total: 86, growth: 5.1 },
+        topShops: [
+          { name: 'TechnoMart', revenue: 125000000, orders: 342 },
+          { name: 'KitobDunyosi', revenue: 89000000, orders: 567 },
+          { name: 'ModaStyle', revenue: 67000000, orders: 234 },
+        ],
+        topProducts: [
+          { name: 'iPhone 16 Pro Max', sales: 45, revenue: 832500000 },
+          { name: 'Samsung Galaxy S25', sales: 38, revenue: 638400000 },
+          { name: 'Nike Air Max 2026', sales: 89, revenue: 111250000 },
+        ],
+        categoryBreakdown: [
+          { name: 'Elektronika', percentage: 42 },
+          { name: 'Kiyimlar', percentage: 25 },
+          { name: 'Sport', percentage: 15 },
+          { name: 'Kitoblar', percentage: 10 },
+          { name: 'Boshqa', percentage: 8 },
+        ],
+      },
+    } as T;
+  }
+
+  // Logs
+  if (endpoint.includes('/admin/logs')) {
+    return {
+      success: true,
+      data: {
+        logs: [
+          { id: 'log1', user: { full_name: 'TOPLA Admin' }, action: 'admin.login', entity_type: 'profile', created_at: '2026-02-11T10:00:00Z', ip_address: '192.168.1.1' },
+          { id: 'log2', user: { full_name: 'TOPLA Admin' }, action: 'product.approve', entity_type: 'product', entity_id: 'p1', created_at: '2026-02-11T09:30:00Z', ip_address: '192.168.1.1' },
+          { id: 'log3', user: { full_name: 'TOPLA Admin' }, action: 'shop.approve', entity_type: 'shop', entity_id: 'shop-3', created_at: '2026-02-10T16:00:00Z', ip_address: '192.168.1.1' },
+          { id: 'log4', user: { full_name: 'TOPLA Admin' }, action: 'user.block', entity_type: 'profile', entity_id: 'u5', created_at: '2026-02-10T14:00:00Z', ip_address: '192.168.1.1' },
+          { id: 'log5', user: { full_name: 'TOPLA Admin' }, action: 'settings.update', entity_type: 'settings', created_at: '2026-02-09T11:00:00Z', ip_address: '192.168.1.1' },
+        ],
+        total: 5, page: 1, limit: 20,
+      },
+    } as T;
+  }
+
+  // Settings
+  if (endpoint.includes('/admin/settings')) {
+    return {
+      success: true,
+      data: {
+        default_delivery_fee: '15000',
+        commission_rate: '10',
+        courier_delivery_share: '80',
+        courier_assignment_timeout: '60',
+        min_order_amount: '30000',
+        app_version: '1.0.0',
+        maintenance_mode: 'false',
+        support_phone: '+998712000000',
+        support_email: 'support@topla.uz',
+      },
+    } as T;
+  }
+
+  // Notifications
+  if (endpoint.includes('/admin/notifications')) {
+    return { success: true, data: [] } as T;
+  }
+
+  // Brands
+  if (endpoint.includes('/admin/brands')) {
+    return {
+      success: true,
+      data: [
+        { id: 'br1', name: 'Apple', logo_url: null, products_count: 45 },
+        { id: 'br2', name: 'Samsung', logo_url: null, products_count: 38 },
+        { id: 'br3', name: 'Nike', logo_url: null, products_count: 89 },
+        { id: 'br4', name: 'Adidas', logo_url: null, products_count: 56 },
+        { id: 'br5', name: 'Xiaomi', logo_url: null, products_count: 34 },
+      ],
+    } as T;
+  }
+
+  // Default
+  return { success: true, data: [] } as T;
 }

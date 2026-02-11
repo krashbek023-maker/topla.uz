@@ -55,6 +55,13 @@ export default function AdminLoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+            <div className="rounded-lg border bg-blue-50/50 p-3 text-sm text-muted-foreground">
+              <p className="font-medium text-blue-700 mb-1">Admin kirish ma&apos;lumotlari:</p>
+              <p>Email: <code className="text-blue-900 font-mono">admin@topla.uz</code></p>
+              <p>Parol: <code className="text-blue-900 font-mono">admin123</code></p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
