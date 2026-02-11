@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -567,6 +568,29 @@ async function main() {
   );
 
   console.log('✅ Admin settings created');
+
+  // ============================================
+  // Admin User
+  // ============================================
+  const adminPasswordHash = await bcrypt.hash('admin123', 12);
+  await prisma.profile.upsert({
+    where: { phone: '+998900000000' },
+    update: {
+      email: 'admin@topla.uz',
+      passwordHash: adminPasswordHash,
+      role: 'admin',
+      fullName: 'TOPLA Admin',
+    },
+    create: {
+      phone: '+998900000000',
+      email: 'admin@topla.uz',
+      passwordHash: adminPasswordHash,
+      role: 'admin',
+      fullName: 'TOPLA Admin',
+      status: 'active',
+    },
+  });
+  console.log('✅ Admin user created: admin@topla.uz / admin123');
 
   // ============================================
   // Banners
