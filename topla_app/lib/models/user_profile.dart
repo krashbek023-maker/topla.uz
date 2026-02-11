@@ -39,15 +39,18 @@ class UserProfile {
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    final firstName = json['first_name'] as String?;
-    final lastName = json['last_name'] as String?;
+    final firstName = (json['first_name'] ?? json['firstName']) as String?;
+    final lastName = (json['last_name'] ?? json['lastName']) as String?;
     // fullName ni first_name va last_name dan yasash yoki to'g'ridan-to'g'ri olish
-    String? fullName = json['full_name'] as String?;
+    String? fullName = (json['full_name'] ?? json['fullName']) as String?;
     if (fullName == null && (firstName != null || lastName != null)) {
       fullName = [firstName, lastName]
           .where((s) => s != null && s.isNotEmpty)
           .join(' ');
     }
+
+    final createdAtRaw = json['created_at'] ?? json['createdAt'];
+    final birthDateRaw = json['birth_date'] ?? json['birthDate'];
 
     return UserProfile(
       id: json['id'] as String,
@@ -56,19 +59,19 @@ class UserProfile {
       fullName: fullName,
       phone: json['phone'] as String?,
       email: json['email'] as String?,
-      avatarUrl: json['avatar_url'] as String?,
-      birthDate: json['birth_date'] != null
-          ? DateTime.parse(json['birth_date'])
-          : null,
+      avatarUrl: (json['avatar_url'] ?? json['avatarUrl']) as String?,
+      birthDate: birthDateRaw != null ? DateTime.parse(birthDateRaw) : null,
       gender: json['gender'] as String?,
-      referralCode: json['referral_code'] as String?,
-      referredBy: json['referred_by'] as String?,
-      cashbackBalance: (json['cashback_balance'] as num?)?.toDouble() ?? 0,
-      totalOrders: json['total_orders'] as int? ?? 0,
-      couponsCount: json['coupons_count'] as int? ?? 0,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : null,
+      referralCode: (json['referral_code'] ?? json['referralCode']) as String?,
+      referredBy: (json['referred_by'] ?? json['referredBy']) as String?,
+      cashbackBalance:
+          (json['cashback_balance'] ?? json['cashbackBalance'] as num?)
+                  ?.toDouble() ??
+              0,
+      totalOrders: (json['total_orders'] ?? json['totalOrders']) as int? ?? 0,
+      couponsCount:
+          (json['coupons_count'] ?? json['couponsCount']) as int? ?? 0,
+      createdAt: createdAtRaw != null ? DateTime.parse(createdAtRaw) : null,
       role: UserRoleExtension.fromString(json['role'] as String?),
     );
   }
@@ -76,14 +79,13 @@ class UserProfile {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'first_name': firstName,
-      'last_name': lastName,
-      'full_name': fullName,
+      'fullName': fullName ??
+          [firstName, lastName]
+              .where((s) => s != null && s.isNotEmpty)
+              .join(' '),
       'phone': phone,
       'email': email,
-      'avatar_url': avatarUrl,
-      'birth_date': birthDate?.toIso8601String(),
-      'gender': gender,
+      'avatarUrl': avatarUrl,
     };
   }
 

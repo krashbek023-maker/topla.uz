@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/constants.dart';
+import '../../core/services/api_client.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -72,9 +72,21 @@ class _SplashScreenState extends State<SplashScreen>
       Navigator.pushReplacementNamed(context, '/onboarding');
     } else {
       // Auth holatini tekshirish
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session != null) {
-        Navigator.pushReplacementNamed(context, '/main');
+      final api = ApiClient();
+      final hasToken = api.hasToken;
+      if (hasToken) {
+        // Token haqiqiyligini serverdan tekshirish
+        try {
+          await api.get('/auth/me');
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, '/main');
+        } catch (e) {
+          debugPrint('Token validation failed: $e');
+          // Token yaroqsiz — auth sahifaga yo'naltirish
+          api.clearTokens();
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, '/auth');
+        }
       } else {
         Navigator.pushReplacementNamed(context, '/auth');
       }

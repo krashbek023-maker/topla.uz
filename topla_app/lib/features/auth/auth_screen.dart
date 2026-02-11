@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/services/api_client.dart';
 import '../../core/constants/constants.dart';
 import '../../providers/auth_provider.dart';
 
@@ -22,29 +23,23 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
   bool _isOtpSent = false;
   bool _isGoogleLoading = false;
-  StreamSubscription<AuthState>? _authSubscription;
+  String _otpChannel = 'sms'; // 'sms' yoki 'telegram'
+  String _sentViaChannel = 'sms'; // Qaysi kanal orqali yuborildi
+
+  // Countdown timer
+  int _resendCountdown = 0;
+  Timer? _resendTimer;
 
   @override
   void initState() {
     super.initState();
-    // Auth state o'zgarishlarini tinglash
-    _authSubscription =
-        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      final event = data.event;
-      if (event == AuthChangeEvent.signedIn) {
-        // Google orqali kirish muvaffaqiyatli
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/main');
-        }
-      }
-    });
   }
 
   @override
   void dispose() {
-    _authSubscription?.cancel();
     _phoneController.dispose();
     _otpController.dispose();
+    _resendTimer?.cancel();
     super.dispose();
   }
 
@@ -58,6 +53,24 @@ class _AuthScreenState extends State<AuthScreen> {
     return '+998$cleaned';
   }
 
+  void _startResendCountdown() {
+    _resendCountdown = 60;
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _resendCountdown--;
+        if (_resendCountdown <= 0) {
+          timer.cancel();
+        }
+      });
+    });
+  }
+
+  /// Backend orqali OTP yuborish (Eskiz SMS)
   Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -65,47 +78,57 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       final phone = _formatPhoneNumber(_phoneController.text.trim());
-      await context.read<AuthProvider>().sendOtp(phone);
+      final api = ApiClient();
+
+      await api.post(
+        '/auth/send-otp',
+        body: {
+          'phone': phone,
+          'channel': _otpChannel,
+        },
+        auth: false,
+      );
 
       if (mounted) {
-        setState(() => _isOtpSent = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('SMS kod yuborildi'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } on AuthException catch (e) {
-      if (mounted) {
+        setState(() {
+          _isOtpSent = true;
+          _isLoading = false;
+          _sentViaChannel = _otpChannel;
+        });
+        _startResendCountdown();
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_getErrorMessage(e.message)),
-            backgroundColor: AppColors.error,
+            content: Text(
+              _sentViaChannel == 'telegram'
+                  ? 'Telegram orqali kod yuborildi'
+                  : 'SMS kod yuborildi',
+            ),
+            backgroundColor: AppColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
+        final message =
+            e is ApiException ? e.message : _getErrorMessage(e.toString());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Xatolik: $e'),
+            content: Text(message),
             backgroundColor: AppColors.error,
           ),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
+  /// Backend'da OTP tekshirish va JWT olish
   Future<void> _verifyOtp() async {
-    if (_otpController.text.length != 6) {
+    if (_otpController.text.length != 4) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('6 xonali kodni kiriting'),
+          content: Text('4 xonali kodni kiriting'),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -116,27 +139,42 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       final phone = _formatPhoneNumber(_phoneController.text.trim());
-      await context
-          .read<AuthProvider>()
-          .verifyOtp(phone, _otpController.text.trim());
+      final api = ApiClient();
 
-      if (mounted && context.read<AuthProvider>().isLoggedIn) {
-        Navigator.pushReplacementNamed(context, '/main');
-      }
-    } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_getErrorMessage(e.message)),
-            backgroundColor: AppColors.error,
-          ),
+      final response = await api.post(
+        '/auth/verify-otp',
+        body: {
+          'phone': phone,
+          'code': _otpController.text.trim(),
+        },
+        auth: false,
+      );
+
+      final data = response.dataMap;
+      final accessToken = data['accessToken'] as String?;
+      final refreshToken = data['refreshToken'] as String?;
+
+      if (accessToken != null) {
+        await api.setTokens(
+          accessToken: accessToken,
+          refreshToken: refreshToken ?? '',
         );
+      }
+
+      // AuthProvider state'ni yangilash
+      if (mounted) {
+        await context.read<AuthProvider>().loadProfile();
+        if (mounted && context.read<AuthProvider>().isLoggedIn) {
+          Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
+        }
       }
     } catch (e) {
       if (mounted) {
+        final message =
+            e is ApiException ? e.message : _getErrorMessage(e.toString());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Xatolik: $e'),
+            content: Text(message),
             backgroundColor: AppColors.error,
           ),
         );
@@ -148,30 +186,50 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  /// Google orqali kirish
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
 
     try {
-      await context.read<AuthProvider>().signInWithGoogle();
+      // AuthProvider orqali to'liq Google Sign-In jarayoni
+      // Bu repository'ning signInWithGoogle() metodini chaqiradi
+      // U _fetchAndSetUser() orqali _userId ni o'rnatadi
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.signInWithGoogle();
 
-      if (mounted && context.read<AuthProvider>().isLoggedIn) {
-        Navigator.pushReplacementNamed(context, '/main');
-      }
-    } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_getErrorMessage(e.message)),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      if (mounted && authProvider.isLoggedIn) {
+        Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
       }
     } catch (e) {
+      debugPrint('=== GOOGLE SIGN-IN ERROR: $e ===');
       if (mounted) {
+        final errorStr = e.toString().toLowerCase();
+
+        // Foydalanuvchi bekor qildi - xabar ko'rsatmaymiz
+        if (errorStr.contains('cancelled') ||
+            errorStr.contains('canceled') ||
+            errorStr.contains('bekor qilindi')) {
+          setState(() => _isGoogleLoading = false);
+          return;
+        }
+
+        String message =
+            'Google kirish xatoligi: ${e.toString().length > 100 ? e.toString().substring(0, 100) : e.toString()}';
+        if (errorStr.contains('network') ||
+            errorStr.contains('internet') ||
+            errorStr.contains('socket') ||
+            errorStr.contains('connection') ||
+            errorStr.contains('unreachable') ||
+            errorStr.contains('timeout')) {
+          message = 'Internet aloqasi yo\'q. Iltimos, tarmoqni tekshiring';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Google kirish xatoligi: $e'),
+            content: Text(message),
             backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -183,13 +241,22 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   String _getErrorMessage(String error) {
-    if (error.contains('Invalid phone')) {
+    final lower = error.toLowerCase();
+    if (lower.contains('network') ||
+        lower.contains('internet') ||
+        lower.contains('socket') ||
+        lower.contains('connection') ||
+        lower.contains('unreachable') ||
+        lower.contains('timeout')) {
+      return 'Internet aloqasi yo\'q. Iltimos, tarmoqni tekshiring';
+    }
+    if (lower.contains('invalid phone')) {
       return 'Noto\'g\'ri telefon raqami';
     }
-    if (error.contains('Invalid OTP') || error.contains('Token has expired')) {
+    if (lower.contains('invalid otp') || lower.contains('token has expired')) {
       return 'Kod xato yoki muddati tugagan';
     }
-    if (error.contains('Phone not confirmed')) {
+    if (lower.contains('phone not confirmed')) {
       return 'Telefon tasdiqlanmagan';
     }
     return error;
@@ -204,139 +271,261 @@ class _AuthScreenState extends State<AuthScreen> {
         statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-          ),
-        ),
+        backgroundColor: Colors.white,
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSizes.xl),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: AppSizes.lg),
+                  const SizedBox(height: 16),
+
+                  // Back button
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_back_ios_new, size: 18),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
 
                   // Logo
                   _buildLogo(),
 
-                  const SizedBox(height: AppSizes.xxl),
+                  const SizedBox(height: 32),
 
                   // Title
                   Text(
                     _isOtpSent ? 'Kodni kiriting' : 'Kirish',
                     style: const TextStyle(
                       fontSize: 28,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
                     ),
                     textAlign: TextAlign.center,
                   ),
 
-                  const SizedBox(height: AppSizes.sm),
+                  const SizedBox(height: 8),
 
                   Text(
                     _isOtpSent
-                        ? 'SMS orqali yuborilgan 6 xonali kodni kiriting'
+                        ? (_sentViaChannel == 'telegram'
+                            ? 'Telegram ilovasiga yuborilgan\n4 xonali kodni kiriting'
+                            : 'SMS orqali yuborilgan\n4 xonali kodni kiriting')
                         : 'Telefon raqamingizni kiriting',
                     style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
+                      fontSize: 15,
+                      color: Colors.grey.shade500,
+                      height: 1.4,
                     ),
                     textAlign: TextAlign.center,
                   ),
 
-                  const SizedBox(height: AppSizes.xxl),
+                  const SizedBox(height: 36),
 
                   // Phone field
                   if (!_isOtpSent) ...[
-                    TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.done,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(9),
-                      ],
-                      decoration: InputDecoration(
-                        labelText: 'Telefon raqami',
-                        hintText: '90 123 45 67',
-                        prefixIcon: const Icon(Iconsax.call),
-                        prefixText: '+998 ',
-                        prefixStyle: const TextStyle(
+                    // Channel selector (SMS / Telegram) - pill shaped
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(100),
+                        color: Colors.grey.shade100,
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildChannelTab(
+                              label: 'SMS',
+                              icon: Iconsax.message,
+                              isSelected: _otpChannel == 'sms',
+                              onTap: () => setState(() => _otpChannel = 'sms'),
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildChannelTab(
+                              label: 'Telegram',
+                              icon: Iconsax.send_2,
+                              isSelected: _otpChannel == 'telegram',
+                              onTap: () =>
+                                  setState(() => _otpChannel = 'telegram'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_otpChannel == 'telegram')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          'Kod Telegram ilovasiga yuboriladi (bepul)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+
+                    // Phone input - modern style
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.grey.shade50,
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.done,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppSizes.radiusMd),
+                        inputFormatters: [
+                          UzPhoneInputFormatter(),
+                        ],
+                        decoration: InputDecoration(
+                          hintText: '90 123 45 67',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          prefixIcon: Container(
+                            padding: const EdgeInsets.only(left: 16, right: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Iconsax.call,
+                                    size: 20, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '+998',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 1,
+                                  height: 24,
+                                  color: Colors.grey.shade300,
+                                ),
+                              ],
+                            ),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Telefon raqamni kiriting';
+                          }
+                          final digits = value.replaceAll(' ', '');
+                          if (digits.length != 9) {
+                            return 'Telefon raqam to\'liq emas';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (_) => _sendOtp(),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Telefon raqamni kiriting';
-                        }
-                        if (value.length != 9) {
-                          return 'Telefon raqam 9 ta raqamdan iborat bo\'lishi kerak';
-                        }
-                        return null;
-                      },
-                      onFieldSubmitted: (_) => _sendOtp(),
                     ),
                   ] else ...[
-                    // OTP field
-                    TextFormField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.done,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 8,
+                    // OTP field - modern
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.grey.shade50,
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(6),
-                      ],
-                      decoration: InputDecoration(
-                        hintText: '••••••',
-                        hintStyle: const TextStyle(
-                          fontSize: 24,
-                          letterSpacing: 8,
+                      child: TextFormField(
+                        controller: _otpController,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 16,
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppSizes.radiusMd),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(4),
+                        ],
+                        decoration: InputDecoration(
+                          hintText: '••••',
+                          hintStyle: TextStyle(
+                            fontSize: 28,
+                            letterSpacing: 16,
+                            color: Colors.grey.shade300,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 18,
+                          ),
                         ),
+                        onFieldSubmitted: (_) => _verifyOtp(),
                       ),
-                      onFieldSubmitted: (_) => _verifyOtp(),
                     ),
 
-                    const SizedBox(height: AppSizes.md),
+                    const SizedBox(height: 16),
 
-                    // Change phone button
-                    TextButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              setState(() => _isOtpSent = false);
-                            },
-                      child: const Text('Telefon raqamni o\'zgartirish'),
+                    // Qayta yuborish + telefon o'zgartirish
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _isOtpSent = false;
+                                    _otpController.clear();
+                                  });
+                                  _resendTimer?.cancel();
+                                },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey.shade600,
+                          ),
+                          child: const Text('Raqamni o\'zgartirish'),
+                        ),
+                        TextButton(
+                          onPressed: (_isLoading || _resendCountdown > 0)
+                              ? null
+                              : _sendOtp,
+                          child: Text(
+                            _resendCountdown > 0
+                                ? 'Qayta yuborish (${_resendCountdown}s)'
+                                : 'Qayta yuborish',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
 
-                  const SizedBox(height: AppSizes.xl),
+                  const SizedBox(height: 24),
 
-                  // Submit button
+                  // Submit button - pill-shaped
                   SizedBox(
                     height: 56,
                     child: ElevatedButton(
@@ -346,9 +535,12 @@ class _AuthScreenState extends State<AuthScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            AppColors.primary.withValues(alpha: 0.6),
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppSizes.radiusMd),
+                          borderRadius: BorderRadius.circular(100),
                         ),
                       ),
                       child: _isLoading
@@ -356,7 +548,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                                strokeWidth: 2.5,
                                 color: Colors.white,
                               ),
                             )
@@ -370,37 +562,43 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: AppSizes.xxl),
+                  const SizedBox(height: 28),
 
                   // Divider
                   Row(
                     children: [
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Expanded(
+                          child:
+                              Divider(color: Colors.grey.shade200, height: 1)),
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: AppSizes.lg),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
                           'yoki',
-                          style: TextStyle(color: Colors.grey.shade500),
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Expanded(
+                          child:
+                              Divider(color: Colors.grey.shade200, height: 1)),
                     ],
                   ),
 
-                  const SizedBox(height: AppSizes.xl),
+                  const SizedBox(height: 28),
 
-                  // Google Sign In Button
+                  // Google Sign In Button - pill-shaped
                   SizedBox(
                     height: 56,
                     child: OutlinedButton(
                       onPressed: _isGoogleLoading ? null : _signInWithGoogle,
                       style: OutlinedButton.styleFrom(
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppSizes.radiusMd),
+                          borderRadius: BorderRadius.circular(100),
                         ),
-                        side: BorderSide(color: Colors.grey.shade300),
+                        side: BorderSide(color: Colors.grey.shade200),
+                        elevation: 0,
                       ),
                       child: _isGoogleLoading
                           ? const SizedBox(
@@ -416,7 +614,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 const Text(
                                   'Google orqali kirish',
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                     color: Colors.black87,
                                   ),
@@ -426,7 +624,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: AppSizes.xxl),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -436,18 +634,81 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _buildLogo() {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        shape: BoxShape.circle,
+  Widget _buildChannelTab({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? AppColors.primary : Colors.grey.shade400,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppColors.primary : Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: const Icon(
-        Iconsax.user,
-        color: AppColors.primary,
-        size: 40,
+    );
+  }
+
+  Widget _buildLogo() {
+    return Center(
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primary,
+              AppColors.primary.withValues(alpha: 0.8),
+            ],
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.25),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Iconsax.user,
+          color: Colors.white,
+          size: 32,
+        ),
       ),
     );
   }
@@ -457,101 +718,50 @@ class _AuthScreenState extends State<AuthScreen> {
     return SizedBox(
       width: 24,
       height: 24,
-      child: CustomPaint(
-        painter: GoogleLogoPainter(),
-      ),
+      child: SvgPicture.asset('assets/icon/google_logo.svg'),
     );
   }
 }
 
-// Google logo painter - original colors
-class GoogleLogoPainter extends CustomPainter {
+class UzPhoneInputFormatter extends TextInputFormatter {
   @override
-  void paint(Canvas canvas, Size size) {
-    final double w = size.width;
-    final double h = size.height;
-    final center = Offset(w / 2, h / 2);
-    final radius = w * 0.45;
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // 1. Faqat raqamlarni ajratib olamiz
+    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
 
-    final bluePaint = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..style = PaintingStyle.fill;
-    final greenPaint = Paint()
-      ..color = const Color(0xFF34A853)
-      ..style = PaintingStyle.fill;
-    final yellowPaint = Paint()
-      ..color = const Color(0xFFFBBC05)
-      ..style = PaintingStyle.fill;
-    final redPaint = Paint()
-      ..color = const Color(0xFFEA4335)
-      ..style = PaintingStyle.fill;
+    // 2. Maksimal uzunlikni cheklaymiz (9 ta raqam)
+    if (digits.length > 9) {
+      return oldValue;
+    }
 
-    // Blue arc (right side)
-    final bluePath = Path();
-    bluePath.moveTo(center.dx + radius, center.dy);
-    bluePath.arcToPoint(
-      Offset(center.dx, center.dy - radius),
-      radius: Radius.circular(radius),
-      clockwise: false,
-    );
-    bluePath.lineTo(center.dx, center.dy);
-    bluePath.close();
-    canvas.drawPath(bluePath, bluePaint);
+    // 3. Formatlash (XX XXX XX XX)
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      // 2, 5, 7 indekslardan oldin bo'sh joy qo'shamiz
+      if (i == 2 || i == 5 || i == 7) {
+        buffer.write(' ');
+      }
+      buffer.write(digits[i]);
+    }
 
-    // Red arc (top-left)
-    final redPath = Path();
-    redPath.moveTo(center.dx, center.dy - radius);
-    redPath.arcToPoint(
-      Offset(center.dx - radius, center.dy),
-      radius: Radius.circular(radius),
-      clockwise: false,
-    );
-    redPath.lineTo(center.dx, center.dy);
-    redPath.close();
-    canvas.drawPath(redPath, redPaint);
+    final result = buffer.toString();
 
-    // Yellow arc (bottom-left)
-    final yellowPath = Path();
-    yellowPath.moveTo(center.dx - radius, center.dy);
-    yellowPath.arcToPoint(
-      Offset(center.dx, center.dy + radius),
-      radius: Radius.circular(radius),
-      clockwise: false,
-    );
-    yellowPath.lineTo(center.dx, center.dy);
-    yellowPath.close();
-    canvas.drawPath(yellowPath, yellowPaint);
+    // 4. Kursor pozitsiyasini hisoblash
+    // Agar o'chirish bo'lyotgan bo'lsa va oxiridan o'chsa
+    if (oldValue.text.length > newValue.text.length) {
+      return TextEditingValue(
+        text: result,
+        selection: TextSelection.collapsed(offset: result.length),
+      );
+    }
 
-    // Green arc (bottom-right)
-    final greenPath = Path();
-    greenPath.moveTo(center.dx, center.dy + radius);
-    greenPath.arcToPoint(
-      Offset(center.dx + radius, center.dy),
-      radius: Radius.circular(radius),
-      clockwise: false,
-    );
-    greenPath.lineTo(center.dx, center.dy);
-    greenPath.close();
-    canvas.drawPath(greenPath, greenPaint);
-
-    // White inner circle
-    final whitePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius * 0.6, whitePaint);
-
-    // Blue horizontal bar
-    canvas.drawRect(
-      Rect.fromLTWH(
-        center.dx - radius * 0.1,
-        center.dy - radius * 0.2,
-        radius * 1.1,
-        radius * 0.4,
-      ),
-      bluePaint,
+    // Yozish paytida kursorni oxiriga qo'yamiz
+    return TextEditingValue(
+      text: result,
+      selection: TextSelection.collapsed(offset: result.length),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

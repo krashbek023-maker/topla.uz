@@ -93,101 +93,8 @@ class _HomeScreenNewState extends State<HomeScreenNew>
     },
   ];
 
-  final List<Map<String, dynamic>> _flashSaleProducts = [
-    {
-      'name': 'Simsiz quloqchinlar TWS Pro',
-      'price': 199000,
-      'oldPrice': 350000,
-      'discount': 43,
-      'rating': 4.8,
-      'sold': 1250,
-      'cashback': 5,
-      'image': 'https://via.placeholder.com/150',
-    },
-    {
-      'name': 'Smart Watch Ultra 2024',
-      'price': 450000,
-      'oldPrice': 800000,
-      'discount': 44,
-      'rating': 4.5,
-      'sold': 890,
-      'cashback': 7,
-      'image': 'https://via.placeholder.com/150',
-    },
-    {
-      'name': 'Power Bank 20000mAh',
-      'price': 89000,
-      'oldPrice': 150000,
-      'discount': 41,
-      'rating': 4.9,
-      'sold': 2100,
-      'cashback': 3,
-      'image': 'https://via.placeholder.com/150',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _popularProducts = [
-    {
-      'name': 'iPhone 15 Pro Max 256GB',
-      'price': 15900000,
-      'oldPrice': 18000000,
-      'discount': 12,
-      'rating': 4.9,
-      'sold': 520,
-      'cashback': 10,
-      'image': 'https://via.placeholder.com/150',
-    },
-    {
-      'name': 'Samsung Galaxy S24 Ultra',
-      'price': 12500000,
-      'oldPrice': 14000000,
-      'discount': 11,
-      'rating': 4.7,
-      'sold': 380,
-      'cashback': 8,
-      'image': 'https://via.placeholder.com/150',
-    },
-    {
-      'name': 'MacBook Air M3 13"',
-      'price': 18500000,
-      'oldPrice': 21000000,
-      'discount': 12,
-      'rating': 4.9,
-      'sold': 156,
-      'cashback': 12,
-      'image': 'https://via.placeholder.com/150',
-    },
-    {
-      'name': 'AirPods Pro 2 USB-C',
-      'price': 3200000,
-      'oldPrice': 3800000,
-      'discount': 16,
-      'rating': 4.8,
-      'sold': 890,
-      'cashback': 5,
-      'image': 'https://via.placeholder.com/150',
-    },
-    {
-      'name': 'iPad Pro 11" M4',
-      'price': 14500000,
-      'oldPrice': 16000000,
-      'discount': 9,
-      'rating': 4.9,
-      'sold': 234,
-      'cashback': 8,
-      'image': 'https://via.placeholder.com/150',
-    },
-    {
-      'name': 'Sony WH-1000XM5',
-      'price': 4500000,
-      'oldPrice': 5200000,
-      'discount': 13,
-      'rating': 4.8,
-      'sold': 456,
-      'cashback': 6,
-      'image': 'https://via.placeholder.com/150',
-    },
-  ];
+  // Flash sale va popular uchun bo'sh holatni ko'rsatish
+  // Demo ma'lumotlar olib tashlandi — faqat real API ma'lumotlari ko'rsatiladi
 
   @override
   void initState() {
@@ -214,27 +121,6 @@ class _HomeScreenNewState extends State<HomeScreenNew>
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  // Demo mahsulotlarni savatga qo'shish
-  void _addToCart(BuildContext context, Map<String, dynamic> product) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Iconsax.tick_circle, color: Colors.white),
-            const SizedBox(width: 12),
-            Text('${product['name']} ${context.l10n.addedToCart}'),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
   }
 
   // Provider mahsulotlarni savatga qo'shish
@@ -361,40 +247,15 @@ class _HomeScreenNewState extends State<HomeScreenNew>
                     );
                   }
 
-                  // Agar provider bo'sh bo'lsa, demo ma'lumotlarni ko'rsatamiz
+                  // Bo'sh holat — mahsulotlar hali yuklanmagan
                   if (flashProducts.isEmpty) {
-                    return SizedBox(
-                      height: 300,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _flashSaleProducts.length,
-                        itemBuilder: (context, index) {
-                          final product = _flashSaleProducts[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 14),
-                            child: PremiumProductCard(
-                              name: product['name'],
-                              price: product['price'],
-                              oldPrice: product['oldPrice'],
-                              discount: product['discount'],
-                              rating: product['rating'].toDouble(),
-                              sold: product['sold'],
-                              imageUrl: product['image'],
-                              isFlashSale: true,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        ProductDetailScreen(product: product),
-                                  ),
-                                );
-                              },
-                              onAddToCart: () => _addToCart(context, product),
-                            ),
-                          );
-                        },
+                    return const SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: Text(
+                          'Hozircha aksiya mahsulotlari yo\'q',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       ),
                     );
                   }
@@ -416,8 +277,7 @@ class _HomeScreenNewState extends State<HomeScreenNew>
                             discount: product.discountPercent,
                             rating: product.rating,
                             sold: product.soldCount,
-                            imageUrl: product.imageUrl ??
-                                'https://via.placeholder.com/150',
+                            imageUrl: product.imageUrl ?? '',
                             isFlashSale: true,
                             onTap: () {
                               Navigator.push(
@@ -470,9 +330,20 @@ class _HomeScreenNewState extends State<HomeScreenNew>
                   );
                 }
 
-                // Agar provider bo'sh bo'lsa, demo ma'lumotlarni ko'rsatamiz
-                final products =
-                    popularProducts.isEmpty ? null : popularProducts;
+                // Agar provider bo'sh bo'lsa, bo'sh holat
+                if (popularProducts.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: Text(
+                          'Hozircha mahsulotlar yo\'q',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  );
+                }
 
                 return SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -486,55 +357,30 @@ class _HomeScreenNewState extends State<HomeScreenNew>
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        if (products != null) {
-                          final product = products[index % products.length];
-                          return PremiumProductCard(
-                            name: product.name,
-                            price: product.price.toInt(),
-                            oldPrice: product.originalPrice?.toInt(),
-                            discount: product.discountPercent,
-                            rating: product.rating,
-                            sold: product.soldCount,
-                            imageUrl: product.imageUrl ??
-                                'https://via.placeholder.com/150',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ProductDetailScreen(
-                                    product: product.toMap(),
-                                  ),
+                        final product = popularProducts[index];
+                        return PremiumProductCard(
+                          name: product.name,
+                          price: product.price.toInt(),
+                          oldPrice: product.originalPrice?.toInt(),
+                          discount: product.discountPercent,
+                          rating: product.rating,
+                          sold: product.soldCount,
+                          imageUrl: product.imageUrl ?? '',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProductDetailScreen(
+                                  product: product.toMap(),
                                 ),
-                              );
-                            },
-                            onAddToCart: () =>
-                                _addProductToCart(context, product),
-                          );
-                        } else {
-                          final product =
-                              _popularProducts[index % _popularProducts.length];
-                          return PremiumProductCard(
-                            name: product['name'],
-                            price: product['price'],
-                            oldPrice: product['oldPrice'],
-                            discount: product['discount'],
-                            rating: product['rating'].toDouble(),
-                            sold: product['sold'],
-                            imageUrl: product['image'],
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      ProductDetailScreen(product: product),
-                                ),
-                              );
-                            },
-                            onAddToCart: () => _addToCart(context, product),
-                          );
-                        }
+                              ),
+                            );
+                          },
+                          onAddToCart: () =>
+                              _addProductToCart(context, product),
+                        );
                       },
-                      childCount: products?.length ?? 6,
+                      childCount: popularProducts.length,
                     ),
                   ),
                 );

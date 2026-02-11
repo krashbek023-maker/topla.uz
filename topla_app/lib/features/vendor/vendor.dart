@@ -8,4 +8,3 @@ export 'vendor_analytics_screen.dart';
 export 'vendor_commissions_screen.dart';
 export 'vendor_documents_screen.dart';
 export 'shop_settings_screen.dart';
-export 'create_shop_screen.dart';

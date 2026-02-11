@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/services/api_client.dart';
 import '../../../core/constants/constants.dart';
 import '../widgets/web_header.dart';
 import '../widgets/web_footer.dart';
@@ -596,35 +596,21 @@ class _WebVendorRegisterState extends State<WebVendorRegister> {
     setState(() => _isLoading = true);
 
     try {
-      final supabase = Supabase.instance.client;
+      final api = ApiClient();
 
-      // 1. Foydalanuvchi yaratish
-      final authResponse = await supabase.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        data: {
-          'full_name': _fullNameController.text.trim(),
-          'phone': _phoneController.text.trim(),
-          'role': 'vendor',
-        },
-      );
-
-      if (authResponse.user == null) {
-        throw Exception('Ro\'yxatdan o\'tishda xatolik');
-      }
-
-      // 2. Do'kon yaratish
-      await supabase.from('shops').insert({
-        'owner_id': authResponse.user!.id,
-        'name': _shopNameController.text.trim(),
-        'description': _shopDescriptionController.text.trim(),
-        'address': _shopAddressController.text.trim(),
+      // 1. Vendor ro'yxatdan o'tkazish + do'kon yaratish
+      await api.post('/auth/vendor/register', body: {
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+        'fullName': _fullNameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'shopName': _shopNameController.text.trim(),
+        'shopDescription': _shopDescriptionController.text.trim(),
+        'shopAddress': _shopAddressController.text.trim(),
         'category': _selectedCategory,
-        'is_legal_entity': _isLegalEntity,
-        'inn': _isLegalEntity ? _innController.text.trim() : null,
-        'license': _isLegalEntity ? _licenseController.text.trim() : null,
-        'status': 'pending', // Tasdiqlanishi kerak
-        'is_active': false,
+        'isLegalEntity': _isLegalEntity,
+        if (_isLegalEntity) 'inn': _innController.text.trim(),
+        if (_isLegalEntity) 'license': _licenseController.text.trim(),
       });
 
       if (mounted) {
@@ -638,7 +624,7 @@ class _WebVendorRegisterState extends State<WebVendorRegister> {
         // Login sahifasiga yo'naltirish
         Navigator.pushReplacementNamed(context, '/vendor/login');
       }
-    } on AuthException catch (e) {
+    } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

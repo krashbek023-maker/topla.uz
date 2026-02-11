@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user_role.dart';
-import '../../features/vendor/create_shop_screen.dart';
 
 /// Vendor Guard - Faqat vendor kirishiga ruxsat
 /// Agar vendor emas - do'kon ochish sahifasiga yo'naltiradi
@@ -35,7 +35,7 @@ class VendorGuard extends StatelessWidget {
 
         if (!isVendor) {
           if (redirectToCreateShop) {
-            return const CreateShopScreen();
+            return _buildNotVendor(context);
           }
           return _buildNotVendor(context);
         }
@@ -157,14 +157,17 @@ class VendorGuard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CreateShopScreen()),
-                  ),
+                  onPressed: () {
+                    launchUrl(
+                      Uri.parse('https://vendor.topla.uz/register'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
+                    shape: const StadiumBorder(),
                   ),
                   child: const Text('Do\'kon ochish'),
                 ),
@@ -200,10 +203,11 @@ class VendorRouteGuard {
     final isVendor = authProvider.profile?.role == UserRole.vendor;
 
     if (!isVendor && redirectToCreateShop) {
-      return Navigator.push<T>(
-        context,
-        MaterialPageRoute(builder: (_) => const CreateShopScreen()),
+      launchUrl(
+        Uri.parse('https://vendor.topla.uz/register'),
+        mode: LaunchMode.externalApplication,
       );
+      return null;
     }
 
     if (!isVendor) {

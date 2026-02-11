@@ -3,12 +3,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:get_it/get_it.dart';
 import '../../core/constants/constants.dart';
+import '../../core/repositories/i_category_repository.dart';
+import '../../core/services/api_client.dart';
 import '../../models/product_model.dart';
 import '../../models/category_model.dart';
 import '../../services/vendor_service.dart';
-import '../../services/supabase_service.dart';
 
 /// Vendor - Mahsulot qo'shish/tahrirlash
 class VendorProductFormScreen extends StatefulWidget {
@@ -69,7 +70,7 @@ class _VendorProductFormScreenState extends State<VendorProductFormScreen> {
 
   Future<void> _loadCategories() async {
     try {
-      final categories = await SupabaseService.getCategories();
+      final categories = await GetIt.I<ICategoryRepository>().getCategories();
       if (mounted) {
         setState(() {
           _categories = categories;
@@ -126,24 +127,17 @@ class _VendorProductFormScreenState extends State<VendorProductFormScreen> {
     setState(() => _isUploadingImages = true);
 
     final List<String> uploadedUrls = List.from(_existingImages);
-    final supabase = Supabase.instance.client;
-    final shopId = (await VendorService.getMyShop())?.id ?? 'unknown';
+    final api = ApiClient();
 
     for (final image in _newImages) {
       try {
-        final bytes = await image.readAsBytes();
-        final fileName =
-            '${DateTime.now().millisecondsSinceEpoch}_${image.name}';
-        final path = 'products/$shopId/$fileName';
-
-        await supabase.storage.from('products').uploadBinary(
-              path,
-              bytes,
-              fileOptions:
-                  const FileOptions(cacheControl: '3600', upsert: true),
-            );
-
-        final url = supabase.storage.from('products').getPublicUrl(path);
+        final response = await api.upload(
+          '/upload/image',
+          filePath: image.path,
+          fieldName: 'image',
+          fields: {'folder': 'products'},
+        );
+        final url = response.dataMap['url'] as String;
         uploadedUrls.add(url);
       } catch (e) {
         debugPrint('Image upload error: $e');
@@ -205,7 +199,6 @@ class _VendorProductFormScreenState extends State<VendorProductFormScreen> {
               : null,
           images: images,
           categoryId: _selectedCategoryId,
-          subcategoryId: _selectedSubcategoryId,
         );
       } else {
         await VendorService.createProduct(
@@ -223,7 +216,6 @@ class _VendorProductFormScreenState extends State<VendorProductFormScreen> {
               ? double.parse(_oldPriceController.text)
               : null,
           categoryId: _selectedCategoryId!,
-          subcategoryId: _selectedSubcategoryId,
           stock: int.parse(_stockController.text),
           cashbackPercent: _cashbackController.text.isNotEmpty
               ? int.parse(_cashbackController.text)

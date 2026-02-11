@@ -1,4 +1,4 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/services/api_client.dart';
 import '../models/shop_model.dart';
 import '../models/payout_model.dart';
 import '../models/commission_model.dart';
@@ -6,25 +6,21 @@ import '../models/vendor_stats.dart';
 import '../models/product_model.dart';
 import '../models/order_model.dart';
 
-/// Vendor (Do'kon egasi) servislar
+/// Vendor (Do'kon egasi) servislar - Node.js API orqali
 class VendorService {
-  static final _supabase = Supabase.instance.client;
+  static final _api = ApiClient();
 
   // ==================== SHOP ====================
 
   /// Vendor o'z do'konini olish
   static Future<ShopModel?> getMyShop() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return null;
-
-    final response = await _supabase
-        .from('shops')
-        .select()
-        .eq('owner_id', userId)
-        .maybeSingle();
-
-    if (response == null) return null;
-    return ShopModel.fromJson(response);
+    try {
+      final response = await _api.get('/vendor/shop');
+      return ShopModel.fromJson(response.dataMap);
+    } on ApiException catch (e) {
+      if (e.isNotFound) return null;
+      rethrow;
+    }
   }
 
   /// Yangi do'kon yaratish
@@ -37,31 +33,16 @@ class VendorService {
     String? address,
     String? city,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Foydalanuvchi topilmadi');
-
-    final response = await _supabase
-        .from('shops')
-        .insert({
-          'owner_id': userId,
-          'name': name,
-          'description': description,
-          'logo_url': logoUrl,
-          'phone': phone,
-          'email': email,
-          'address': address,
-          'city': city,
-        })
-        .select()
-        .single();
-
-    // Foydalanuvchi rolini vendor ga o'zgartirish
-    await _supabase.from('profiles').update({'role': 'vendor'}).eq(
-      'id',
-      userId,
-    );
-
-    return ShopModel.fromJson(response);
+    final response = await _api.post('/vendor/shop', body: {
+      'name': name,
+      if (description != null) 'description': description,
+      if (logoUrl != null) 'logoUrl': logoUrl,
+      if (phone != null) 'phone': phone,
+      if (email != null) 'email': email,
+      if (address != null) 'address': address,
+      if (city != null) 'city': city,
+    });
+    return ShopModel.fromJson(response.dataMap);
   }
 
   /// Do'konni yangilash
@@ -79,22 +60,21 @@ class VendorService {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
     if (description != null) updates['description'] = description;
-    if (logoUrl != null) updates['logo_url'] = logoUrl;
-    if (bannerUrl != null) updates['banner_url'] = bannerUrl;
+    if (logoUrl != null) updates['logoUrl'] = logoUrl;
+    if (bannerUrl != null) updates['bannerUrl'] = bannerUrl;
     if (phone != null) updates['phone'] = phone;
     if (email != null) updates['email'] = email;
     if (address != null) updates['address'] = address;
     if (city != null) updates['city'] = city;
-    updates['updated_at'] = DateTime.now().toIso8601String();
 
-    final response = await _supabase
-        .from('shops')
-        .update(updates)
-        .eq('id', shopId)
-        .select()
-        .single();
+    if (updates.isEmpty) {
+      final current = await getMyShop();
+      if (current == null) throw Exception('Do\'kon topilmadi');
+      return current;
+    }
 
-    return ShopModel.fromJson(response);
+    final response = await _api.put('/vendor/shop', body: updates);
+    return ShopModel.fromJson(response.dataMap);
   }
 
   // ==================== PRODUCTS ====================
@@ -105,20 +85,14 @@ class VendorService {
     int limit = 50,
     int offset = 0,
   }) async {
-    final shop = await getMyShop();
-    if (shop == null) return [];
+    final params = <String, dynamic>{
+      'limit': limit,
+      'offset': offset,
+    };
+    if (moderationStatus != null) params['moderationStatus'] = moderationStatus;
 
-    var query = _supabase.from('products').select().eq('shop_id', shop.id);
-
-    if (moderationStatus != null) {
-      query = query.eq('moderation_status', moderationStatus);
-    }
-
-    final response = await query
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
-
-    return (response as List).map((e) => ProductModel.fromJson(e)).toList();
+    final response = await _api.get('/vendor/products', queryParams: params);
+    return (response.dataList).map((e) => ProductModel.fromJson(e)).toList();
   }
 
   /// Yangi mahsulot qo'shish
@@ -130,36 +104,23 @@ class VendorService {
     required double price,
     double? oldPrice,
     required String categoryId,
-    String? subcategoryId,
     List<String>? images,
     int stock = 0,
     int? cashbackPercent,
   }) async {
-    final shop = await getMyShop();
-    if (shop == null) throw Exception('Do\'kon topilmadi');
-
-    final response = await _supabase
-        .from('products')
-        .insert({
-          'shop_id': shop.id,
-          'name_uz': nameUz,
-          'name_ru': nameRu,
-          'description_uz': descriptionUz,
-          'description_ru': descriptionRu,
-          'price': price,
-          'old_price': oldPrice,
-          'category_id': categoryId,
-          'subcategory_id': subcategoryId,
-          'images': images ?? [],
-          'stock': stock,
-          'cashback_percent': cashbackPercent,
-          'moderation_status': 'pending',
-          'is_active': false,
-        })
-        .select()
-        .single();
-
-    return ProductModel.fromJson(response);
+    final response = await _api.post('/vendor/products', body: {
+      'name': nameUz,
+      'nameRu': nameRu,
+      if (descriptionUz != null) 'description': descriptionUz,
+      if (descriptionRu != null) 'descriptionRu': descriptionRu,
+      'price': price,
+      if (oldPrice != null) 'originalPrice': oldPrice,
+      'categoryId': categoryId,
+      if (images != null) 'images': images,
+      'stock': stock,
+      if (cashbackPercent != null) 'cashbackPercent': cashbackPercent,
+    });
+    return ProductModel.fromJson(response.dataMap);
   }
 
   /// Mahsulotni yangilash
@@ -172,55 +133,34 @@ class VendorService {
     double? price,
     double? oldPrice,
     String? categoryId,
-    String? subcategoryId,
     List<String>? images,
     int? stock,
     int? cashbackPercent,
-    bool? isActive,
   }) async {
-    final updates = <String, dynamic>{};
-    if (nameUz != null) updates['name_uz'] = nameUz;
-    if (nameRu != null) updates['name_ru'] = nameRu;
-    if (descriptionUz != null) updates['description_uz'] = descriptionUz;
-    if (descriptionRu != null) updates['description_ru'] = descriptionRu;
-    if (price != null) updates['price'] = price;
-    if (oldPrice != null) updates['old_price'] = oldPrice;
-    if (categoryId != null) updates['category_id'] = categoryId;
-    if (subcategoryId != null) updates['subcategory_id'] = subcategoryId;
-    if (images != null) updates['images'] = images;
-    if (stock != null) updates['stock'] = stock;
-    if (cashbackPercent != null) updates['cashback_percent'] = cashbackPercent;
-    if (isActive != null) updates['is_active'] = isActive;
-    updates['updated_at'] = DateTime.now().toIso8601String();
+    final body = <String, dynamic>{};
+    if (nameUz != null) body['name'] = nameUz;
+    if (nameRu != null) body['nameRu'] = nameRu;
+    if (descriptionUz != null) body['description'] = descriptionUz;
+    if (descriptionRu != null) body['descriptionRu'] = descriptionRu;
+    if (price != null) body['price'] = price;
+    if (oldPrice != null) body['originalPrice'] = oldPrice;
+    if (categoryId != null) body['categoryId'] = categoryId;
+    if (images != null) body['images'] = images;
+    if (stock != null) body['stock'] = stock;
+    if (cashbackPercent != null) body['cashbackPercent'] = cashbackPercent;
 
-    final response = await _supabase
-        .from('products')
-        .update(updates)
-        .eq('id', productId)
-        .select()
-        .single();
-
-    return ProductModel.fromJson(response);
+    final response = await _api.put('/vendor/products/$productId', body: body);
+    return ProductModel.fromJson(response.dataMap);
   }
 
   /// Mahsulotni o'chirish
   static Future<void> deleteProduct(String productId) async {
-    await _supabase.from('products').delete().eq('id', productId);
+    await _api.delete('/vendor/products/$productId');
   }
 
-  /// Mahsulotni qayta moderatsiyaga yuborish
+  /// Mahsulotni qayta yuborish (moderatsiya uchun)
   static Future<void> resubmitProduct(String productId) async {
-    await _supabase.from('products').update({
-      'moderation_status': 'pending',
-      'rejection_reason': null,
-    }).eq('id', productId);
-
-    await _supabase.from('product_moderation_log').insert({
-      'product_id': productId,
-      'action': 'resubmitted',
-      'previous_status': 'rejected',
-      'new_status': 'pending',
-    });
+    await _api.put('/vendor/products/$productId/resubmit', body: {});
   }
 
   // ==================== ORDERS ====================
@@ -231,181 +171,103 @@ class VendorService {
     int limit = 50,
     int offset = 0,
   }) async {
-    final shop = await getMyShop();
-    if (shop == null) return [];
+    final params = <String, dynamic>{
+      'limit': limit,
+      'offset': offset,
+    };
+    if (status != null) params['status'] = status;
 
-    // Shop mahsulotlariga tegishli buyurtmalarni olish
-    var query = _supabase.from('orders').select('''
-      *,
-      order_items!inner(*, products!inner(shop_id))
-    ''').eq('order_items.products.shop_id', shop.id);
+    final response = await _api.get('/vendor/orders', queryParams: params);
+    return (response.dataList).map((e) => OrderModel.fromJson(e)).toList();
+  }
 
-    if (status != null) {
-      query = query.eq('status', status);
-    }
-
-    final response = await query
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
-
-    return (response as List).map((e) => OrderModel.fromJson(e)).toList();
+  /// Buyurtma statusini yangilash
+  static Future<void> updateOrderStatus(
+      String orderId, String status) async {
+    await _api.put('/vendor/orders/$orderId/status', body: {
+      'status': status,
+    });
   }
 
   // ==================== PAYOUTS ====================
 
   /// Vendor to'lovlarini olish
   static Future<List<PayoutModel>> getMyPayouts({
+    String? status,
     int limit = 50,
     int offset = 0,
   }) async {
-    final shop = await getMyShop();
-    if (shop == null) return [];
+    final params = <String, dynamic>{
+      'limit': limit,
+      'offset': offset,
+    };
+    if (status != null) params['status'] = status;
 
-    final response = await _supabase
-        .from('shop_payouts')
-        .select()
-        .eq('shop_id', shop.id)
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
-
-    return (response as List).map((e) => PayoutModel.fromJson(e)).toList();
+    final response = await _api.get('/vendor/payouts', queryParams: params);
+    return (response.dataList).map((e) => PayoutModel.fromJson(e)).toList();
   }
 
-  /// To'lov so'rovi yuborish
+  /// To'lov so'rovi yaratish
   static Future<PayoutModel> requestPayout({
     required double amount,
-    required PaymentMethod paymentMethod,
-    Map<String, dynamic>? paymentDetails,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolder,
     String? notes,
   }) async {
-    final shop = await getMyShop();
-    if (shop == null) throw Exception('Do\'kon topilmadi');
-
-    if (amount > shop.balance) {
-      throw Exception('Yetarli mablag\' mavjud emas');
-    }
-
-    // Komissiya hisoblash (standard 0% for payout)
-    const commission = 0.0;
-    final netAmount = amount - commission;
-
-    final response = await _supabase
-        .from('shop_payouts')
-        .insert({
-          'shop_id': shop.id,
-          'amount': amount,
-          'commission': commission,
-          'net_amount': netAmount,
-          'payment_method': paymentMethod.toString().split('.').last,
-          'payment_details': paymentDetails,
-          'notes': notes,
-          'status': 'pending',
-        })
-        .select()
-        .single();
-
-    return PayoutModel.fromJson(response);
+    final response = await _api.post('/vendor/payouts', body: {
+      'amount': amount,
+      'bankName': bankName,
+      'accountNumber': accountNumber,
+      'accountHolder': accountHolder,
+      if (notes != null) 'notes': notes,
+    });
+    return PayoutModel.fromJson(response.dataMap);
   }
 
   // ==================== COMMISSIONS ====================
 
-  /// Vendor komissiyalarini olish
+  /// Komissiya tarixini olish
   static Future<List<CommissionModel>> getMyCommissions({
     int limit = 50,
     int offset = 0,
   }) async {
-    final shop = await getMyShop();
-    if (shop == null) return [];
-
-    final response = await _supabase
-        .from('commissions')
-        .select('*, orders(order_number)')
-        .eq('shop_id', shop.id)
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
-
-    return (response as List).map((e) => CommissionModel.fromJson(e)).toList();
+    final response = await _api.get(
+      '/vendor/commissions',
+      queryParams: {'limit': limit, 'offset': offset},
+    );
+    return (response.dataList).map((e) => CommissionModel.fromJson(e)).toList();
   }
 
-  // ==================== STATISTICS ====================
+  // ==================== STATS ====================
 
   /// Vendor statistikasi
   static Future<VendorStatsModel> getMyStats() async {
-    final shop = await getMyShop();
-    if (shop == null) {
-      return VendorStatsModel();
-    }
-
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final monthStart = DateTime(now.year, now.month, 1);
-
-    // Alohida so'rovlar
-    final activeProducts = await _supabase
-        .from('products')
-        .select()
-        .eq('shop_id', shop.id)
-        .eq('moderation_status', 'approved')
-        .eq('is_active', true)
-        .count();
-
-    final pendingProducts = await _supabase
-        .from('products')
-        .select()
-        .eq('shop_id', shop.id)
-        .eq('moderation_status', 'pending')
-        .count();
-
-    final rejectedProducts = await _supabase
-        .from('products')
-        .select()
-        .eq('shop_id', shop.id)
-        .eq('moderation_status', 'rejected')
-        .count();
-
-    // Commissions
-    final todayCommissions = await _supabase
-        .from('commissions')
-        .select('order_amount, commission_amount')
-        .eq('shop_id', shop.id)
-        .gte('created_at', todayStart.toIso8601String());
-
-    final monthlyCommissions = await _supabase
-        .from('commissions')
-        .select('order_amount, commission_amount')
-        .eq('shop_id', shop.id)
-        .gte('created_at', monthStart.toIso8601String());
-
-    // Parse results
-    double todayRevenue = 0;
-    for (var comm in todayCommissions) {
-      todayRevenue += (comm['order_amount'] ?? 0).toDouble() -
-          (comm['commission_amount'] ?? 0).toDouble();
-    }
-
-    double monthlyRevenue = 0;
-    double monthlyCommission = 0;
-    for (var comm in monthlyCommissions) {
-      monthlyRevenue += (comm['order_amount'] ?? 0).toDouble();
-      monthlyCommission += (comm['commission_amount'] ?? 0).toDouble();
-    }
+    final response = await _api.get('/vendor/stats');
+    final data = response.dataMap;
 
     return VendorStatsModel(
-      balance: shop.balance,
-      totalSales: shop.totalSales,
-      totalOrders: shop.totalOrders,
-      totalProducts:
-          activeProducts.count + pendingProducts.count + rejectedProducts.count,
-      rating: shop.rating,
-      reviewCount: shop.reviewCount,
-      todayOrders: todayCommissions.length,
-      todayRevenue: todayRevenue,
-      monthlyRevenue: monthlyRevenue - monthlyCommission,
-      monthlyCommission: monthlyCommission,
-      monthlyOrders: monthlyCommissions.length,
-      activeProducts: activeProducts.count,
-      pendingProducts: pendingProducts.count,
-      rejectedProducts: rejectedProducts.count,
+      balance: (data['balance'] ?? 0).toDouble(),
+      totalSales: (data['total_sales'] ?? data['totalSales'] ?? 0).toDouble(),
+      totalOrders: data['total_orders'] ?? data['totalOrders'] ?? 0,
+      totalProducts: data['total_products'] ?? data['totalProducts'] ?? 0,
+      rating: (data['rating'] ?? 0).toDouble(),
+      reviewCount: data['review_count'] ?? data['reviewCount'] ?? 0,
+      todayOrders: data['today_orders'] ?? data['todayOrders'] ?? 0,
+      todayRevenue:
+          (data['today_revenue'] ?? data['todayRevenue'] ?? 0).toDouble(),
+      monthlyRevenue:
+          (data['monthly_revenue'] ?? data['monthlyRevenue'] ?? 0).toDouble(),
+      monthlyCommission:
+          (data['monthly_commission'] ?? data['monthlyCommission'] ?? 0)
+              .toDouble(),
+      monthlyOrders: data['monthly_orders'] ?? data['monthlyOrders'] ?? 0,
+      activeProducts:
+          data['active_products'] ?? data['activeProducts'] ?? 0,
+      pendingProducts:
+          data['pending_products'] ?? data['pendingProducts'] ?? 0,
+      rejectedProducts:
+          data['rejected_products'] ?? data['rejectedProducts'] ?? 0,
     );
   }
 
@@ -415,119 +277,11 @@ class VendorService {
   static Future<Map<String, dynamic>> getAnalytics({
     String period = 'week',
   }) async {
-    final shop = await getMyShop();
-    if (shop == null) return {};
-
-    final now = DateTime.now();
-    DateTime startDate;
-
-    switch (period) {
-      case 'today':
-        startDate = DateTime(now.year, now.month, now.day);
-        break;
-      case 'week':
-        startDate = now.subtract(const Duration(days: 7));
-        break;
-      case 'month':
-        startDate = DateTime(now.year, now.month, 1);
-        break;
-      case 'year':
-        startDate = DateTime(now.year, 1, 1);
-        break;
-      default:
-        startDate = now.subtract(const Duration(days: 7));
-    }
-
-    // Get commissions for the period
-    final commissions = await _supabase
-        .from('commissions')
-        .select('order_amount, commission_amount, created_at')
-        .eq('shop_id', shop.id)
-        .gte('created_at', startDate.toIso8601String())
-        .order('created_at');
-
-    double revenue = 0;
-    double commission = 0;
-    Map<String, double> salesByDay = {};
-
-    for (var c in commissions) {
-      final orderAmount = (c['order_amount'] ?? 0).toDouble();
-      final commissionAmount = (c['commission_amount'] ?? 0).toDouble();
-      revenue += orderAmount;
-      commission += commissionAmount;
-
-      final date = DateTime.parse(c['created_at']);
-      final dayKey = '${date.month}/${date.day}';
-      salesByDay[dayKey] =
-          (salesByDay[dayKey] ?? 0) + orderAmount - commissionAmount;
-    }
-
-    // Get top products
-    final topProductsResponse = await _supabase
-        .from('products')
-        .select('id, name_uz, sold_count, price')
-        .eq('shop_id', shop.id)
-        .order('sold_count', ascending: false)
-        .limit(5);
-
-    final topProducts = (topProductsResponse as List)
-        .map((p) => {
-              'name': p['name_uz'],
-              'sold': p['sold_count'] ?? 0,
-              'revenue':
-                  ((p['sold_count'] ?? 0) * (p['price'] ?? 0)).toDouble(),
-            })
-        .toList();
-
-    // Get order stats
-    final orders = await _supabase
-        .from('orders')
-        .select('status, order_items!inner(products!inner(shop_id))')
-        .eq('order_items.products.shop_id', shop.id)
-        .gte('created_at', startDate.toIso8601String());
-
-    int pendingOrders = 0;
-    int processingOrders = 0;
-    int completedOrders = 0;
-    int cancelledOrders = 0;
-
-    for (var order in orders) {
-      switch (order['status']) {
-        case 'pending':
-          pendingOrders++;
-          break;
-        case 'confirmed':
-        case 'preparing':
-        case 'ready':
-        case 'delivering':
-          processingOrders++;
-          break;
-        case 'delivered':
-          completedOrders++;
-          break;
-        case 'cancelled':
-          cancelledOrders++;
-          break;
-      }
-    }
-
-    return {
-      'revenue': revenue,
-      'commission': commission,
-      'netRevenue': revenue - commission,
-      'orders': commissions.length,
-      'salesByDay': salesByDay.entries
-          .map((e) => {
-                'label': e.key,
-                'amount': e.value,
-              })
-          .toList(),
-      'topProducts': topProducts,
-      'pendingOrders': pendingOrders,
-      'processingOrders': processingOrders,
-      'completedOrders': completedOrders,
-      'cancelledOrders': cancelledOrders,
-    };
+    final response = await _api.get(
+      '/vendor/analytics',
+      queryParams: {'period': period},
+    );
+    return response.dataMap;
   }
 
   // ==================== IMAGE UPLOAD ====================
@@ -537,17 +291,12 @@ class VendorService {
     String filePath,
     String fileName,
   ) async {
-    final shop = await getMyShop();
-    if (shop == null) throw Exception('Do\'kon topilmadi');
-
-    final path = 'shops/${shop.id}/$fileName';
-
-    await _supabase.storage.from('products').upload(
-          path,
-          // File handling would go here
-          filePath as dynamic,
-        );
-
-    return _supabase.storage.from('products').getPublicUrl(path);
+    final response = await _api.upload(
+      '/upload/image',
+      filePath: filePath,
+      fieldName: 'image',
+      fields: {'folder': 'shops'},
+    );
+    return response.dataMap['url'] as String;
   }
 }

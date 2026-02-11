@@ -31,13 +31,14 @@ class CartItemModel {
   }
 
   factory CartItemModel.fromJson(Map<String, dynamic> json) {
+    final productData = json['product'] ?? json['products'];
     return CartItemModel(
       id: json['id'] as String? ?? '',
-      userId: json['user_id'] as String? ?? '',
-      productId: json['product_id'] as String? ?? '',
+      userId: (json['user_id'] ?? json['userId']) as String? ?? '',
+      productId: (json['product_id'] ?? json['productId']) as String? ?? '',
       quantity: json['quantity'] as int? ?? 1,
-      product: json['products'] != null
-          ? ProductInfo.fromJson(json['products'] as Map<String, dynamic>)
+      product: productData != null
+          ? ProductInfo.fromJson(productData as Map<String, dynamic>)
           : null,
     );
   }
@@ -68,11 +69,11 @@ class ProductInfo {
   factory ProductInfo.fromJson(Map<String, dynamic> json) {
     return ProductInfo(
       id: json['id'] as String? ?? '',
-      nameUz: json['name_uz'] as String? ?? 'Nomsiz mahsulot',
-      nameRu: json['name_ru'] as String? ?? 'Без названия',
+      nameUz: (json['name_uz'] ?? json['name']) as String? ?? 'Nomsiz mahsulot',
+      nameRu: (json['name_ru'] ?? json['name']) as String? ?? 'Без названия',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      oldPrice: json['old_price'] != null
-          ? (json['old_price'] as num).toDouble()
+      oldPrice: (json['old_price'] ?? json['originalPrice']) != null
+          ? ((json['old_price'] ?? json['originalPrice']) as num).toDouble()
           : null,
       images: json['images'] != null ? List<String>.from(json['images']) : [],
       stock: json['stock'] as int? ?? 0,

@@ -1,10 +1,8 @@
-export 'supabase_service.dart';
 export 'vendor_service.dart';
 export 'notification_service.dart';
 export 'payment_service.dart';
 export 'api_error_handler.dart';
 export 'cache_service.dart';
 export 'push_notification_service.dart';
-export 'repositories.dart';
 export 'secure_storage_service.dart';
 export 'biometric_service.dart';

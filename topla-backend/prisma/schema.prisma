@@ -1,0 +1,736 @@
+// ============================================
+// TOPLA Database Schema
+// Yandex Go-style Marketplace + Delivery
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1. USERS & AUTH
+// ============================================
+
+enum UserRole {
+  user
+  vendor
+  courier
+  admin
+}
+
+enum UserStatus {
+  active
+  inactive
+  blocked
+  pending_verification
+}
+
+model Profile {
+  id            String     @id @default(uuid()) @db.Uuid
+  phone         String     @unique
+  email         String?
+  fullName      String?    @map("full_name")
+  avatarUrl     String?    @map("avatar_url")
+  role          UserRole   @default(user)
+  status        UserStatus @default(active)
+  fcmToken      String?    @map("fcm_token")
+  language      String     @default("uz")
+  passwordHash  String?    @map("password_hash")
+  firebaseUid   String?    @unique @map("firebase_uid")
+  
+  // Location
+  lastLatitude  Float?     @map("last_latitude")
+  lastLongitude Float?     @map("last_longitude")
+  
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  addresses       Address[]
+  orders          Order[]
+  cartItems       CartItem[]
+  favorites       Favorite[]
+  reviews         ShopReview[]
+  notifications   Notification[]
+  devices         UserDevice[]
+  shop            Shop?
+  courier         Courier?
+  deliveryRatings DeliveryRating[]
+  promoUsages     PromoCodeUsage[]
+
+  @@map("profiles")
+}
+
+model UserDevice {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  fcmToken  String   @map("fcm_token")
+  platform  String   // android, ios, web
+  deviceId  String?  @map("device_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fcmToken])
+  @@map("user_devices")
+}
+
+// ============================================
+// 2. ADDRESSES
+// ============================================
+
+model Address {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  name         String   // "Uy", "Ish", "Boshqa"
+  fullAddress  String   @map("full_address")
+  street       String?
+  building     String?
+  apartment    String?
+  entrance     String?
+  floor        String?
+  comment      String?
+  latitude     Float
+  longitude    Float
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user   Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@map("addresses")
+}
+
+// ============================================
+// 3. SHOPS & VENDORS
+// ============================================
+
+enum ShopStatus {
+  pending
+  active
+  inactive
+  blocked
+}
+
+model Shop {
+  id             String     @id @default(uuid()) @db.Uuid
+  ownerId        String     @unique @map("owner_id") @db.Uuid
+  name           String
+  description    String?
+  logoUrl        String?    @map("logo_url")
+  bannerUrl      String?    @map("banner_url")
+  phone          String?
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  status         ShopStatus @default(pending)
+  rating         Float      @default(0)
+  reviewCount    Int        @default(0) @map("review_count")
+  totalSales     Int        @default(0) @map("total_sales")
+  balance        Decimal    @default(0) @db.Decimal(12, 2)
+  commissionRate Decimal    @default(10) @map("commission_rate") @db.Decimal(5, 2)
+  
+  // Social links
+  telegram       String?
+  instagram      String?
+  
+  // Working hours
+  workingHours   Json?      @map("working_hours") // {"mon": {"open": "09:00", "close": "18:00"}, ...}
+  isOpen         Boolean    @default(true) @map("is_open")
+  
+  // Delivery settings
+  minOrderAmount   Decimal?   @default(0) @map("min_order_amount") @db.Decimal(12, 2)
+  deliveryFee      Decimal?   @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  freeDeliveryFrom Decimal?   @map("free_delivery_from") @db.Decimal(12, 2)
+  deliveryRadius   Float?     @map("delivery_radius") // km
+  
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  owner        Profile          @relation(fields: [ownerId], references: [id])
+  products     Product[]
+  reviews      ShopReview[]
+  orderItems   OrderItem[]
+  payouts      Payout[]
+  transactions VendorTransaction[]
+
+  @@map("shops")
+}
+
+model ShopReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  shopId    String   @map("shop_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  shop Shop    @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, userId])
+  @@map("shop_reviews")
+}
+
+// ============================================
+// 4. PRODUCTS
+// ============================================
+
+model Category {
+  id           String   @id @default(uuid()) @db.Uuid
+  nameUz       String   @map("name_uz")
+  nameRu       String   @map("name_ru")
+  icon         String?
+  imageUrl     String?  @map("image_url")
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+
+  subcategories Subcategory[]
+  products      Product[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id         String   @id @default(uuid()) @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  nameUz     String   @map("name_uz")
+  nameRu     String   @map("name_ru")
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+
+  category Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@map("subcategories")
+}
+
+model Brand {
+  id       String    @id @default(uuid()) @db.Uuid
+  name     String    @unique
+  logoUrl  String?   @map("logo_url")
+  products Product[]
+
+  @@map("brands")
+}
+
+model Color {
+  id       String    @id @default(uuid()) @db.Uuid
+  nameUz   String    @map("name_uz")
+  nameRu   String    @map("name_ru")
+  hexCode  String    @map("hex_code")
+  products Product[]
+
+  @@map("colors")
+}
+
+model Product {
+  id             String   @id @default(uuid()) @db.Uuid
+  shopId         String   @map("shop_id") @db.Uuid
+  categoryId     String?  @map("category_id") @db.Uuid
+  subcategoryId  String?  @map("subcategory_id") @db.Uuid
+  brandId        String?  @map("brand_id") @db.Uuid
+  colorId        String?  @map("color_id") @db.Uuid
+  
+  name           String
+  description    String?
+  price          Decimal  @db.Decimal(12, 2)
+  originalPrice  Decimal? @map("original_price") @db.Decimal(12, 2)
+  discountPercent Int?    @map("discount_percent")
+  
+  images         String[] // Array of image URLs
+  
+  stock          Int      @default(0)
+  unit           String   @default("dona") // dona, kg, litr, metr
+  minOrder       Int      @default(1) @map("min_order")
+  
+  isActive       Boolean  @default(true) @map("is_active")
+  isFeatured     Boolean  @default(false) @map("is_featured")
+  isFlashSale    Boolean  @default(false) @map("is_flash_sale")
+  flashSaleEnd   DateTime? @map("flash_sale_end")
+  
+  viewCount      Int      @default(0) @map("view_count")
+  salesCount     Int      @default(0) @map("sales_count")
+  rating         Float    @default(0)
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  shop          Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category      Category?     @relation(fields: [categoryId], references: [id])
+  subcategory   Subcategory?  @relation(fields: [subcategoryId], references: [id])
+  brand         Brand?        @relation(fields: [brandId], references: [id])
+  color         Color?        @relation(fields: [colorId], references: [id])
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  favorites     Favorite[]
+
+  @@index([shopId])
+  @@index([categoryId])
+  @@index([price])
+  @@index([isActive, isFeatured])
+  @@map("products")
+}
+
+// ============================================
+// 5. CART
+// ============================================
+
+model CartItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("cart_items")
+}
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("favorites")
+}
+
+// ============================================
+// 6. ORDERS (Yandex Go style)
+// ============================================
+
+enum OrderStatus {
+  pending           // Mijoz buyurtma berdi
+  confirmed         // Vendor qabul qildi
+  processing        // Vendor tayyorlayapti
+  ready_for_pickup  // Tayyor - kuryerga berish mumkin
+  courier_assigned  // Kuryer tayinlandi
+  courier_picked_up // Kuryer oldi
+  shipping          // Yetkazilmoqda (GPS tracking)
+  delivered         // Yetkazildi
+  cancelled         // Bekor qilindi
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum PaymentMethod {
+  cash
+  card
+  payme
+  click
+}
+
+enum DeliveryMethod {
+  courier
+  pickup
+}
+
+model Order {
+  id              String         @id @default(uuid()) @db.Uuid
+  orderNumber     String         @unique @map("order_number") // TOPLA-20260209-001
+  userId          String         @map("user_id") @db.Uuid
+  addressId       String?        @map("address_id") @db.Uuid
+  courierId       String?        @map("courier_id") @db.Uuid
+  
+  status          OrderStatus    @default(pending)
+  paymentStatus   PaymentStatus  @default(pending) @map("payment_status")
+  paymentMethod   PaymentMethod  @default(cash) @map("payment_method")
+  deliveryMethod  DeliveryMethod @default(courier) @map("delivery_method")
+  
+  // Amounts
+  subtotal        Decimal        @db.Decimal(12, 2)
+  deliveryFee     Decimal        @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  discount        Decimal        @default(0) @db.Decimal(12, 2)
+  total           Decimal        @db.Decimal(12, 2)
+  
+  // Recipient info
+  recipientName   String?        @map("recipient_name")
+  recipientPhone  String?        @map("recipient_phone")
+  
+  // Delivery schedule
+  deliveryDate    DateTime?      @map("delivery_date")
+  deliveryTimeSlot String?       @map("delivery_time_slot") // "09:00-12:00"
+  
+  // Promo
+  promoCode       String?        @map("promo_code")
+  
+  // Notes
+  note            String?
+  cancelReason    String?        @map("cancel_reason")
+  
+  // Timestamps
+  confirmedAt     DateTime?      @map("confirmed_at")
+  readyAt         DateTime?      @map("ready_at")
+  pickedUpAt      DateTime?      @map("picked_up_at")
+  shippingAt      DateTime?      @map("shipping_at")
+  deliveredAt     DateTime?      @map("delivered_at")
+  cancelledAt     DateTime?      @map("cancelled_at")
+  
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  user    Profile  @relation(fields: [userId], references: [id])
+  address Address? @relation(fields: [addressId], references: [id])
+  courier Courier? @relation(fields: [courierId], references: [id])
+  items   OrderItem[]
+  statusHistory OrderStatusHistory[]
+  deliveryRating DeliveryRating?
+
+  @@index([userId, status])
+  @@index([courierId, status])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(uuid()) @db.Uuid
+  orderId    String  @map("order_id") @db.Uuid
+  productId  String  @map("product_id") @db.Uuid
+  shopId     String  @map("shop_id") @db.Uuid
+  
+  name       String
+  price      Decimal @db.Decimal(12, 2)
+  quantity   Int
+  imageUrl   String? @map("image_url")
+  
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  shop    Shop    @relation(fields: [shopId], references: [id])
+
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(uuid()) @db.Uuid
+  orderId   String      @map("order_id") @db.Uuid
+  status    OrderStatus
+  note      String?
+  changedBy String?     @map("changed_by") @db.Uuid // who changed it
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_status_history")
+}
+
+// ============================================
+// 7. COURIER SYSTEM (Yandex Go style)
+// ============================================
+
+enum CourierStatus {
+  offline     // Ishlamayapti
+  online      // Tayyor, buyurtma kutmoqda
+  busy        // Yetkazmoqda
+  on_break    // Tanaffus
+}
+
+enum VehicleType {
+  walking     // Piyoda
+  bicycle     // Velosiped
+  motorcycle  // Mototsikl
+  car         // Mashina
+}
+
+model Courier {
+  id            String        @id @default(uuid()) @db.Uuid
+  profileId     String        @unique @map("profile_id") @db.Uuid
+  
+  vehicleType   VehicleType   @default(motorcycle) @map("vehicle_type")
+  vehicleNumber String?       @map("vehicle_number")
+  
+  status        CourierStatus @default(offline)
+  isVerified    Boolean       @default(false) @map("is_verified")
+  
+  // Stats
+  rating        Float         @default(5.0)
+  totalDeliveries Int         @default(0) @map("total_deliveries")
+  totalEarnings Decimal       @default(0) @map("total_earnings") @db.Decimal(12, 2)
+  balance       Decimal       @default(0) @db.Decimal(12, 2)
+  
+  // Current location
+  currentLatitude  Float?     @map("current_latitude")
+  currentLongitude Float?     @map("current_longitude")
+  lastLocationAt   DateTime?  @map("last_location_at")
+  
+  // Delivery settings
+  maxDistance    Float         @default(10) @map("max_distance") // km
+  
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  profile          Profile              @relation(fields: [profileId], references: [id])
+  orders           Order[]
+  locationHistory  CourierLocation[]
+  assignments      DeliveryAssignment[]
+  ratings          DeliveryRating[]
+  payouts          CourierPayout[]
+
+  @@index([status, currentLatitude, currentLongitude])
+  @@map("couriers")
+}
+
+model CourierLocation {
+  id        String   @id @default(uuid()) @db.Uuid
+  courierId String   @map("courier_id") @db.Uuid
+  latitude  Float
+  longitude Float
+  speed     Float?   // km/h
+  heading   Float?   // degree 0-360
+  accuracy  Float?   // meters
+  createdAt DateTime @default(now()) @map("created_at")
+
+  courier Courier @relation(fields: [courierId], references: [id], onDelete: Cascade)
+
+  @@index([courierId, createdAt(sort: Desc)])
+  @@map("courier_locations")
+}
+
+model DeliveryAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @map("order_id") @db.Uuid
+  courierId  String   @map("courier_id") @db.Uuid
+  status     String   @default("pending") // pending, accepted, rejected, expired
+  
+  // Distance from courier to shop
+  distanceKm Float?   @map("distance_km")
+  estimatedMinutes Int? @map("estimated_minutes")
+  
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  respondedAt DateTime? @map("responded_at")
+  expiresAt  DateTime  @map("expires_at") // Auto-reject after timeout
+
+  courier Courier @relation(fields: [courierId], references: [id])
+
+  @@index([courierId, status])
+  @@index([orderId])
+  @@map("delivery_assignments")
+}
+
+model DeliveryRating {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @unique @map("order_id") @db.Uuid
+  courierId String   @map("courier_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  courier Courier @relation(fields: [courierId], references: [id])
+  user    Profile @relation(fields: [userId], references: [id])
+
+  @@map("delivery_ratings")
+}
+
+model CourierPayout {
+  id        String   @id @default(uuid()) @db.Uuid
+  courierId String   @map("courier_id") @db.Uuid
+  amount    Decimal  @db.Decimal(12, 2)
+  status    String   @default("pending") // pending, completed, failed
+  cardNumber String? @map("card_number")
+  processedAt DateTime? @map("processed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  courier Courier @relation(fields: [courierId], references: [id])
+
+  @@map("courier_payouts")
+}
+
+// ============================================
+// 8. NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  order_new         // Vendor: yangi buyurtma
+  order_confirmed   // Mijoz: vendor qabul qildi
+  order_processing  // Mijoz: tayyorlanmoqda
+  order_ready       // Kuryer: tayyor, olib ketish
+  order_assigned    // Mijoz: kuryer tayinlandi
+  order_picked_up   // Mijoz: kuryer oldi
+  order_shipping    // Mijoz: yo'lda
+  order_delivered   // Hammaga: yetkazildi
+  order_cancelled   // Tegishli: bekor qilindi
+  courier_new       // Kuryer: yangi yetkazma taklifi
+  promo             // Mijoz: reklama/aksiya
+  system            // Hammaga: tizim xabari
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?            // Additional payload
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+// ============================================
+// 9. PAYMENTS & TRANSACTIONS
+// ============================================
+
+model Transaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderId         String   @map("order_id") @db.Uuid
+  amount          Decimal  @db.Decimal(12, 2)
+  paymentMethod   String   @map("payment_method")
+  status          String   @default("pending") // pending, completed, failed, refunded
+  providerTxnId   String?  @map("provider_txn_id")
+  providerData    Json?    @map("provider_data")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([orderId])
+  @@map("transactions")
+}
+
+model VendorTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  shopId      String   @map("shop_id") @db.Uuid
+  orderId     String?  @map("order_id") @db.Uuid
+  amount      Decimal  @db.Decimal(12, 2)
+  commission  Decimal  @default(0) @db.Decimal(12, 2)
+  netAmount   Decimal  @map("net_amount") @db.Decimal(12, 2)
+  type        String   // sale, payout, adjustment
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  @@index([shopId, createdAt])
+  @@map("vendor_transactions")
+}
+
+model Payout {
+  id          String   @id @default(uuid()) @db.Uuid
+  shopId      String   @map("shop_id") @db.Uuid
+  amount      Decimal  @db.Decimal(12, 2)
+  status      String   @default("pending") // pending, completed, failed
+  cardNumber  String?  @map("card_number")
+  processedAt DateTime? @map("processed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  @@map("payouts")
+}
+
+model SavedCard {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  cardNumber String   @map("card_number") // masked: **** **** **** 1234
+  cardHolder String?  @map("card_holder")
+  expiryDate String?  @map("expiry_date")
+  token      String   // payment provider token
+  provider   String   // payme, click
+  isDefault  Boolean  @default(false) @map("is_default")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("saved_cards")
+}
+
+// ============================================
+// 10. PROMO CODES
+// ============================================
+
+model PromoCode {
+  id             String   @id @default(uuid()) @db.Uuid
+  code           String   @unique
+  discountType   String   @map("discount_type") // percentage, fixed
+  discountValue  Decimal  @map("discount_value") @db.Decimal(12, 2)
+  minOrderAmount Decimal? @map("min_order_amount") @db.Decimal(12, 2)
+  maxUses        Int?     @map("max_uses")
+  currentUses    Int      @default(0) @map("current_uses")
+  expiresAt      DateTime? @map("expires_at")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  usages PromoCodeUsage[]
+
+  @@map("promo_codes")
+}
+
+model PromoCodeUsage {
+  id        String   @id @default(uuid()) @db.Uuid
+  promoId   String   @map("promo_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  orderId   String?  @map("order_id") @db.Uuid
+  usedAt    DateTime @default(now()) @map("used_at")
+
+  promo PromoCode @relation(fields: [promoId], references: [id])
+  user  Profile   @relation(fields: [userId], references: [id])
+
+  @@unique([promoId, userId])
+  @@map("promo_code_usage")
+}
+
+// ============================================
+// 11. ADMIN & CONTENT
+// ============================================
+
+model Banner {
+  id          String   @id @default(uuid()) @db.Uuid
+  imageUrl    String   @map("image_url")
+  titleUz     String?  @map("title_uz")
+  titleRu     String?  @map("title_ru")
+  subtitleUz  String?  @map("subtitle_uz")
+  subtitleRu  String?  @map("subtitle_ru")
+  actionType  String   @default("none") @map("action_type") // none, link, product, category
+  actionValue String?  @map("action_value")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("banners")
+}
+
+model AdminSetting {
+  id    String @id @default(uuid()) @db.Uuid
+  key   String @unique
+  value String
+  type  String @default("string") // string, number, boolean, json
+
+  @@map("admin_settings")
+}
+
+// ============================================
+// 12. DELIVERY ZONES (optional, for future)
+// ============================================
+
+model DeliveryZone {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  polygon      Json     // GeoJSON polygon
+  deliveryFee  Decimal  @map("delivery_fee") @db.Decimal(12, 2)
+  minOrder     Decimal? @map("min_order") @db.Decimal(12, 2)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("delivery_zones")
+}

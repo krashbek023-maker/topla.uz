@@ -17,13 +17,13 @@ class ImageOptimizer {
     int? height,
     int quality = 80,
   }) {
-    // For Supabase storage
-    if (originalUrl.contains('supabase')) {
-      final params = <String>[];
-      if (width != null) params.add('width=$width');
-      if (height != null) params.add('height=$height');
-      params.add('quality=$quality');
+    // Query params bilan rasm URL yaratish
+    final params = <String>[];
+    if (width != null) params.add('width=$width');
+    if (height != null) params.add('height=$height');
+    params.add('quality=$quality');
 
+    if (params.isNotEmpty) {
       final separator = originalUrl.contains('?') ? '&' : '?';
       return '$originalUrl$separator${params.join('&')}';
     }

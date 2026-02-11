@@ -11,7 +11,7 @@ import 'vendor_analytics_screen.dart';
 import 'vendor_commissions_screen.dart';
 import 'vendor_documents_screen.dart';
 import 'shop_settings_screen.dart';
-import 'create_shop_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Vendor Dashboard ekrani
 class VendorDashboardScreen extends StatefulWidget {
@@ -57,9 +57,9 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
       );
     }
 
-    // Agar do'kon yo'q bo'lsa, yaratish ekraniga yo'naltirish
+    // Agar do'kon yo'q bo'lsa, saytga yo'naltirish
     if (_shop == null) {
-      return const CreateShopScreen();
+      return _buildNoShopState();
     }
 
     return Scaffold(
@@ -525,6 +525,83 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoShopState() {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        title: const Text('Do\'kon'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Iconsax.shop_add,
+                  size: 48,
+                  color: Colors.orange.shade600,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Do\'koningiz yo\'q',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Do\'kon ochish uchun saytimizga o\'ting va ro\'yxatdan o\'ting',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    launchUrl(
+                      Uri.parse('https://vendor.topla.uz/register'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
+                  icon: const Icon(Iconsax.global),
+                  label: const Text('Saytga o\'tish'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                    elevation: 2,
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

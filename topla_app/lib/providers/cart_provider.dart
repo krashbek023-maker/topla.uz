@@ -26,8 +26,16 @@ class CartProvider extends ChangeNotifier {
   int get totalQuantity => _items.fold(0, (sum, item) => sum + item.quantity);
 
   double get subtotal => _items.fold(0, (sum, item) => sum + item.total);
-  double get deliveryFee => 50000;
+  // TODO: yetkazish narxini backenddan olish (masofaga qarab)
+  double _deliveryFee = 0;
+  double get deliveryFee => _deliveryFee;
   double get total => subtotal + deliveryFee;
+
+  /// Yetkazish narxini yangilash (backend hisoblab beradi)
+  void setDeliveryFee(double fee) {
+    _deliveryFee = fee;
+    notifyListeners();
+  }
 
   void _init() {
     loadCart();
@@ -121,7 +129,9 @@ class CartProvider extends ChangeNotifier {
       try {
         _items = await _cartRepo.getCart();
         notifyListeners();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Cart revert error: $e');
+      }
       _error = e.toString();
       notifyListeners();
       rethrow;

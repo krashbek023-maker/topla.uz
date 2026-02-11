@@ -51,65 +51,64 @@ class ShopModel {
   });
 
   factory ShopModel.fromJson(Map<String, dynamic> json) {
+    // Backend status enum → isVerified/isActive mapping
+    final status = json['status'] as String?;
+    final createdAtRaw = json['created_at'] ?? json['createdAt'];
+
     return ShopModel(
       id: json['id'] as String? ?? '',
-      ownerId: json['owner_id'] as String? ?? '',
+      ownerId: (json['owner_id'] ?? json['ownerId']) as String? ?? '',
       name: json['name'] as String? ?? '',
       slug: json['slug'],
       description: json['description'],
-      logoUrl: json['logo_url'],
-      bannerUrl: json['banner_url'],
+      logoUrl: json['logo_url'] ?? json['logoUrl'],
+      bannerUrl: json['banner_url'] ?? json['bannerUrl'],
       phone: json['phone'],
       email: json['email'],
       address: json['address'],
       city: json['city'],
-      isVerified: json['is_verified'] ?? false,
-      isActive: json['is_active'] ?? true,
+      isVerified: json['is_verified'] ?? (status == 'active'),
+      isActive: json['is_active'] ??
+          json['isOpen'] ??
+          (status != 'blocked' && status != 'inactive'),
       verifiedAt: json['verified_at'] != null
           ? DateTime.parse(json['verified_at'])
           : null,
-      commissionRate: (json['commission_rate'] ?? 10.0).toDouble(),
+      commissionRate:
+          (json['commission_rate'] ?? json['commissionRate'] ?? 10.0)
+              .toDouble(),
       balance: (json['balance'] ?? 0.0).toDouble(),
-      totalSales: (json['total_sales'] ?? 0.0).toDouble(),
-      totalOrders: json['total_orders'] ?? 0,
+      totalSales: (json['total_sales'] ?? json['totalSales'] ?? 0.0).toDouble(),
+      totalOrders: json['total_orders'] ?? json['totalOrders'] ?? 0,
       rating: (json['rating'] ?? 0.0).toDouble(),
-      reviewCount: json['review_count'] ?? 0,
-      followersCount: json['followers_count'] ?? 0,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
+      reviewCount: json['review_count'] ?? json['reviewCount'] ?? 0,
+      followersCount: json['followers_count'] ?? json['followersCount'] ?? 0,
+      createdAt:
+          createdAtRaw != null ? DateTime.parse(createdAtRaw) : DateTime.now(),
+      updatedAt: (json['updated_at'] ?? json['updatedAt']) != null
+          ? DateTime.parse((json['updated_at'] ?? json['updatedAt']))
           : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'owner_id': ownerId,
       'name': name,
-      'slug': slug,
       'description': description,
-      'logo_url': logoUrl,
-      'banner_url': bannerUrl,
+      'logoUrl': logoUrl,
+      'bannerUrl': bannerUrl,
       'phone': phone,
-      'email': email,
       'address': address,
-      'city': city,
-      'is_verified': isVerified,
-      'is_active': isActive,
-      'commission_rate': commissionRate,
     };
   }
 
   Map<String, dynamic> toInsertJson() {
     return {
-      'owner_id': ownerId,
       'name': name,
       'description': description,
-      'logo_url': logoUrl,
+      'logoUrl': logoUrl,
       'phone': phone,
-      'email': email,
       'address': address,
-      'city': city,
     };
   }
 

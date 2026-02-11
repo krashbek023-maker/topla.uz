@@ -34,9 +34,13 @@ class AddressModel {
   factory AddressModel.fromJson(Map<String, dynamic> json) {
     return AddressModel(
       id: json['id'] ?? '',
-      userId: json['user_id'] ?? '',
+      userId: (json['user_id'] ?? json['userId']) as String? ?? '',
       title: json['name'] ?? json['title'] ?? 'Uy',
-      address: json['street'] ?? json['full_address'] ?? json['address'] ?? '',
+      address: json['fullAddress'] ??
+          json['full_address'] ??
+          json['street'] ??
+          json['address'] ??
+          '',
       apartment: json['apartment'] as String?,
       entrance: json['entrance'] as String?,
       floor: json['floor'] as String?,
@@ -46,30 +50,26 @@ class AddressModel {
       longitude: json['longitude'] != null
           ? (json['longitude'] as num).toDouble()
           : null,
-      isDefault: json['is_default'] ?? false,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
+      isDefault: (json['is_default'] ?? json['isDefault']) as bool? ?? false,
+      createdAt: (json['created_at'] ?? json['createdAt']) != null
+          ? DateTime.parse((json['created_at'] ?? json['createdAt']))
           : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
+      updatedAt: (json['updated_at'] ?? json['updatedAt']) != null
+          ? DateTime.parse((json['updated_at'] ?? json['updatedAt']))
           : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'user_id': userId,
       'name': title,
-      'street': address,
+      'fullAddress': address,
       'apartment': apartment,
       'entrance': entrance,
       'floor': floor,
       'latitude': latitude,
       'longitude': longitude,
-      'is_default': isDefault,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'isDefault': isDefault,
     };
   }
 

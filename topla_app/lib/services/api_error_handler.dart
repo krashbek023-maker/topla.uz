@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/services/api_client.dart' as api;
 
 /// API Error types
 enum ApiErrorType {
@@ -99,22 +99,12 @@ class ApiErrorHandler {
       );
     }
 
-    // Supabase/PostgrestException errors
-    if (error is PostgrestException) {
-      return _handlePostgrestError(error);
+    // API client ApiException
+    if (error is api.ApiException) {
+      return _handleApiClientException(error);
     }
 
-    // Auth errors
-    if (error is AuthException) {
-      return ApiException(
-        message: error.message,
-        type: ApiErrorType.auth,
-        statusCode: int.tryParse(error.statusCode ?? ''),
-        originalError: error,
-      );
-    }
-
-    // Already ApiException
+    // Already ApiException (local)
     if (error is ApiException) {
       return error;
     }
@@ -127,46 +117,44 @@ class ApiErrorHandler {
     );
   }
 
-  static ApiException _handlePostgrestError(PostgrestException error) {
-    final code = error.code;
-    final message = error.message;
-
-    // Check for specific error codes
-    if (code == '23505') {
+  static ApiException _handleApiClientException(api.ApiException error) {
+    // Map status codes to error types
+    if (error.statusCode == 401 || error.statusCode == 403) {
       return ApiException(
-        message: 'Bu ma\'lumot allaqachon mavjud',
-        type: ApiErrorType.validation,
-        originalError: error,
-      );
-    }
-
-    if (code == '23503') {
-      return ApiException(
-        message: 'Bog\'liq ma\'lumot topilmadi',
-        type: ApiErrorType.validation,
-        originalError: error,
-      );
-    }
-
-    if (code == '42501') {
-      return ApiException(
-        message: 'Ruxsat yo\'q',
+        message: error.message,
         type: ApiErrorType.auth,
+        statusCode: error.statusCode,
         originalError: error,
       );
     }
-
-    if (code == 'PGRST116') {
+    if (error.statusCode == 404) {
       return ApiException(
         message: 'Ma\'lumot topilmadi',
         type: ApiErrorType.notFound,
+        statusCode: error.statusCode,
         originalError: error,
       );
     }
-
+    if (error.statusCode == 422 || error.statusCode == 400) {
+      return ApiException(
+        message: error.message,
+        type: ApiErrorType.validation,
+        statusCode: error.statusCode,
+        originalError: error,
+      );
+    }
+    if (error.statusCode == 429) {
+      return ApiException(
+        message: 'Juda ko\'p so\'rov',
+        type: ApiErrorType.rateLimit,
+        statusCode: error.statusCode,
+        originalError: error,
+      );
+    }
     return ApiException(
-      message: message,
+      message: error.message,
       type: ApiErrorType.server,
+      statusCode: error.statusCode,
       originalError: error,
     );
   }

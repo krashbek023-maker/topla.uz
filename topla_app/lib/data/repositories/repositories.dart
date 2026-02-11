@@ -4,14 +4,15 @@ library;
 // Services needed by repositories
 export '../../services/cache_service.dart';
 
-// Repository implementations
-export 'auth_repository_impl.dart';
-export 'product_repository_impl.dart';
-export 'category_repository_impl.dart';
-export 'cart_repository_impl.dart';
-export 'order_repository_impl.dart';
-export 'address_repository_impl.dart';
-export 'favorites_repository_impl.dart';
-export 'banner_repository_impl.dart';
-export 'vendor_repository_impl.dart';
-export 'shop_repository_impl.dart';
+// API implementations
+export 'api_auth_repository_impl.dart';
+export 'api_product_repository_impl.dart';
+export 'api_category_repository_impl.dart';
+export 'api_cart_repository_impl.dart';
+export 'api_order_repository_impl.dart';
+export 'api_address_repository_impl.dart';
+export 'api_favorites_repository_impl.dart';
+export 'api_banner_repository_impl.dart';
+export 'api_vendor_repository_impl.dart';
+export 'api_shop_repository_impl.dart';
+export 'api_courier_repository_impl.dart';

@@ -1,14 +1,15 @@
 import 'package:get_it/get_it.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase;
 
 // Repositories - Interfaces
 import 'package:topla_app/core/repositories/repositories.dart';
 
-// Repositories - Implementations
+// Repositories - API Implementations
 import 'package:topla_app/data/repositories/repositories.dart';
 
 // Services
+import 'package:topla_app/core/services/api_client.dart';
+import 'package:topla_app/core/services/tracking_service.dart';
 import 'package:topla_app/services/secure_storage_service.dart';
 
 // Providers
@@ -22,17 +23,22 @@ final getIt = GetIt.instance;
 Future<void> setupDependencies() async {
   // ==================== EXTERNAL ====================
 
-  // Supabase client
-  getIt.registerLazySingleton<SupabaseClient>(
-    () => Supabase.instance.client,
-  );
-
-  // Firebase Auth
+  // Firebase Auth (OTP uchun hali kerak)
   getIt.registerLazySingleton<firebase.FirebaseAuth>(
     () => firebase.FirebaseAuth.instance,
   );
 
   // ==================== SERVICES ====================
+
+  // API Client (singleton)
+  getIt.registerLazySingleton<ApiClient>(
+    () => ApiClient(),
+  );
+
+  // Tracking service (real-time kuryer kuzatish)
+  getIt.registerLazySingleton<TrackingService>(
+    () => TrackingService(),
+  );
 
   // Cache service
   getIt.registerLazySingleton<CacheService>(
@@ -48,86 +54,60 @@ Future<void> setupDependencies() async {
 
   // Auth repository
   getIt.registerLazySingleton<IAuthRepository>(
-    () => AuthRepositoryImpl(
-      getIt<SupabaseClient>(),
-      getIt<firebase.FirebaseAuth>(),
-    ),
+    () => ApiAuthRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Product repository
   getIt.registerLazySingleton<IProductRepository>(
-    () => ProductRepositoryImpl(
-      getIt<SupabaseClient>(),
-      getIt<CacheService>(),
-    ),
+    () => ApiProductRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Category repository
   getIt.registerLazySingleton<ICategoryRepository>(
-    () => CategoryRepositoryImpl(
-      getIt<SupabaseClient>(),
-      getIt<CacheService>(),
-    ),
+    () => ApiCategoryRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Cart repository
   getIt.registerLazySingleton<ICartRepository>(
-    () => CartRepositoryImpl(
-      getIt<SupabaseClient>(),
-      () => getIt<IAuthRepository>().currentUserId,
-    ),
+    () => ApiCartRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Order repository
   getIt.registerLazySingleton<IOrderRepository>(
-    () => OrderRepositoryImpl(
-      getIt<SupabaseClient>(),
-      () => getIt<IAuthRepository>().currentUserId,
-    ),
+    () => ApiOrderRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Address repository
   getIt.registerLazySingleton<IAddressRepository>(
-    () => AddressRepositoryImpl(
-      getIt<SupabaseClient>(),
-      () => getIt<IAuthRepository>().currentUserId,
-    ),
+    () => ApiAddressRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Favorites repository
   getIt.registerLazySingleton<IFavoritesRepository>(
-    () => FavoritesRepositoryImpl(
-      getIt<SupabaseClient>(),
-      () => getIt<IAuthRepository>().currentUserId,
-    ),
+    () => ApiFavoritesRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Banner repository
   getIt.registerLazySingleton<IBannerRepository>(
-    () => BannerRepositoryImpl(
-      getIt<SupabaseClient>(),
-      getIt<CacheService>(),
-    ),
+    () => ApiBannerRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Vendor repository
   getIt.registerLazySingleton<IVendorRepository>(
-    () => VendorRepositoryImpl(
-      getIt<SupabaseClient>(),
-      () => getIt<IAuthRepository>().currentUserId,
-    ),
+    () => ApiVendorRepositoryImpl(getIt<ApiClient>()),
   );
 
   // Shop repository (public shop access)
   getIt.registerLazySingleton<IShopRepository>(
-    () => ShopRepositoryImpl(
-      supabase: getIt<SupabaseClient>(),
-    ),
+    () => ApiShopRepositoryImpl(getIt<ApiClient>()),
+  );
+
+  // Courier repository (Yandex Go uslubi)
+  getIt.registerLazySingleton<ICourierRepository>(
+    () => ApiCourierRepositoryImpl(getIt<ApiClient>()),
   );
 
   // ==================== PROVIDERS ====================
-  // Provider'larni singleton sifatida register qilamiz
-  // chunki ChangeNotifier state saqlashi kerak
 
   getIt.registerLazySingleton<AuthProvider>(
     () => AuthProvider(getIt<IAuthRepository>()),

@@ -1,9 +1,7 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/models.dart';
 
 /// Auth operatsiyalari uchun interface
-/// Bu interface orqali Supabase, Firebase yoki boshqa backend'ga
-/// hech qanday kod o'zgartirmasdan o'tish mumkin
+/// Bu interface orqali backend'ga hech qanday kod o'zgartirmasdan o'tish mumkin
 abstract class IAuthRepository {
   /// Joriy foydalanuvchi ID si
   String? get currentUserId;
@@ -15,13 +13,13 @@ abstract class IAuthRepository {
   Future<void> sendOTP(String phone);
 
   /// OTP ni tasdiqlash
-  Future<AuthResponse> verifyOTP(String phone, String otp);
+  Future<void> verifyOTP(String phone, String otp);
 
   /// Email + Password bilan ro'yxatdan o'tish
-  Future<AuthResponse> signUp(String email, String password);
+  Future<void> signUp(String email, String password);
 
   /// Email + Password bilan kirish
-  Future<AuthResponse> signIn(String email, String password);
+  Future<void> signIn(String email, String password);
 
   /// Parolni tiklash
   Future<void> resetPassword(String email);

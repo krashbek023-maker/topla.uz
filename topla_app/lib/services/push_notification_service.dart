@@ -3,7 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/services/api_client.dart';
 
 /// Background message handler (must be top-level function)
 @pragma('vm:entry-point')
@@ -72,7 +72,7 @@ class PushNotificationService {
 
     // Get FCM token
     _fcmToken = await _messaging.getToken();
-    debugPrint('FCM Token: $_fcmToken');
+    debugPrint('FCM Token received (length: ${_fcmToken?.length ?? 0})');
 
     // Listen for token refresh
     _messaging.onTokenRefresh.listen(_onTokenRefresh);
@@ -135,16 +135,14 @@ class PushNotificationService {
   Future<void> _saveTokenToServer() async {
     if (_fcmToken == null) return;
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
     try {
-      await Supabase.instance.client.from('user_devices').upsert({
-        'user_id': userId,
-        'fcm_token': _fcmToken,
+      final api = ApiClient();
+      if (!api.hasToken) return;
+
+      await api.post('/auth/fcm-token', body: {
+        'fcmToken': _fcmToken,
         'platform': _getPlatform(),
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id, fcm_token');
+      });
     } catch (e) {
       debugPrint('Error saving FCM token: $e');
     }
@@ -286,13 +284,10 @@ class PushNotificationService {
   Future<void> clearToken() async {
     if (_fcmToken == null) return;
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null && _fcmToken != null) {
+    final api = ApiClient();
+    if (api.hasToken && _fcmToken != null) {
       try {
-        await Supabase.instance.client.from('user_devices').delete().match({
-          'user_id': userId,
-          'fcm_token': _fcmToken!,
-        });
+        // Token is removed server-side via /auth/logout
       } catch (e) {
         debugPrint('Error clearing FCM token: $e');
       }

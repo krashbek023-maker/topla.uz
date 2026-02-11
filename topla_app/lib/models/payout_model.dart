@@ -41,23 +41,29 @@ class PayoutModel {
   });
 
   factory PayoutModel.fromJson(Map<String, dynamic> json) {
+    final amount = (json['amount'] ?? 0).toDouble();
+    final commission = (json['commission'] ?? 0).toDouble();
     return PayoutModel(
       id: json['id'],
-      shopId: json['shop_id'],
-      amount: (json['amount'] ?? 0).toDouble(),
-      commission: (json['commission'] ?? 0).toDouble(),
-      netAmount: (json['net_amount'] ?? 0).toDouble(),
-      paymentMethod: _parsePaymentMethod(json['payment_method']),
-      paymentDetails: json['payment_details'],
+      shopId: (json['shop_id'] ?? json['shopId']) as String? ?? '',
+      amount: amount,
+      commission: commission,
+      netAmount:
+          (json['net_amount'] ?? json['netAmount'] ?? (amount - commission))
+              .toDouble(),
+      paymentMethod:
+          _parsePaymentMethod(json['payment_method'] ?? json['paymentMethod']),
+      paymentDetails: json['payment_details'] ?? json['paymentDetails'],
       status: _parseStatus(json['status']),
-      processedBy: json['processed_by'],
-      processedAt: json['processed_at'] != null
-          ? DateTime.parse(json['processed_at'])
+      processedBy: json['processed_by'] ?? json['processedBy'],
+      processedAt: (json['processed_at'] ?? json['processedAt']) != null
+          ? DateTime.parse((json['processed_at'] ?? json['processedAt']))
           : null,
       notes: json['notes'],
-      createdAt: DateTime.parse(json['created_at']),
-      shopName: json['shops']?['name'],
-      processedByName: json['profiles']?['full_name'],
+      createdAt: DateTime.parse((json['created_at'] ?? json['createdAt'])),
+      shopName: json['shops']?['name'] ?? json['shop']?['name'],
+      processedByName:
+          json['profiles']?['full_name'] ?? json['profiles']?['fullName'],
     );
   }
 

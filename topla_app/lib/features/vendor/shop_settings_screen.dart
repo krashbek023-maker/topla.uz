@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/constants.dart';
+import '../../core/services/api_client.dart';
 import '../../models/shop_model.dart';
 import '../../services/vendor_service.dart';
 
@@ -144,23 +144,14 @@ class _ShopSettingsScreenState extends State<ShopSettingsScreen> {
   }
 
   Future<String> _uploadImage(XFile image, String type) async {
-    final supabase = Supabase.instance.client;
-    final bytes = await image.readAsBytes();
-    final fileExt = image.path.split('.').last;
-    final fileName =
-        '${widget.shop.id}_${type}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-    final path = 'shops/${widget.shop.id}/$fileName';
-
-    await supabase.storage.from('shops').uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: 'image/$fileExt',
-            upsert: true,
-          ),
-        );
-
-    return supabase.storage.from('shops').getPublicUrl(path);
+    final api = ApiClient();
+    final response = await api.upload(
+      '/upload/image',
+      filePath: image.path,
+      fieldName: 'image',
+      fields: {'folder': 'shops'},
+    );
+    return response.dataMap['url'] as String;
   }
 
   Future<void> _saveSettings() async {

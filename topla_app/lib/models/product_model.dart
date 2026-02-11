@@ -54,31 +54,33 @@ class ProductModel {
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     return ProductModel(
       id: json['id'] as String,
-      nameUz: json['name_uz'] as String,
-      nameRu: json['name_ru'] as String? ?? '',
-      descriptionUz: json['description_uz'] as String?,
-      descriptionRu: json['description_ru'] as String?,
+      nameUz: (json['name_uz'] ?? json['name'] ?? '') as String,
+      nameRu: (json['name_ru'] ?? json['name'] ?? '') as String,
+      descriptionUz: (json['description_uz'] ?? json['description']) as String?,
+      descriptionRu: (json['description_ru'] ?? json['description']) as String?,
       price: (json['price'] as num).toDouble(),
-      oldPrice: json['old_price'] != null
-          ? (json['old_price'] as num).toDouble()
+      oldPrice: (json['old_price'] ?? json['originalPrice']) != null
+          ? ((json['old_price'] ?? json['originalPrice']) as num).toDouble()
           : null,
-      categoryId: json['category_id'] as String?,
-      subcategoryId: json['subcategory_id'] as String?,
-      shopId: json['shop_id'] as String?,
+      categoryId: (json['category_id'] ?? json['categoryId']) as String?,
+      subcategoryId:
+          (json['subcategory_id'] ?? json['subcategoryId']) as String?,
+      shopId: (json['shop_id'] ?? json['shopId']) as String?,
       images: json['images'] != null ? List<String>.from(json['images']) : [],
       stock: json['stock'] as int? ?? 0,
-      soldCount: json['sold_count'] as int? ?? 0,
+      soldCount: (json['sold_count'] ?? json['salesCount']) as int? ?? 0,
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
-      reviewCount: json['review_count'] as int? ?? 0,
-      isActive: json['is_active'] as bool? ?? true,
-      isFeatured: json['is_featured'] as bool? ?? false,
+      reviewCount: (json['review_count'] ?? json['reviewCount']) as int? ?? 0,
+      isActive: (json['is_active'] ?? json['isActive']) as bool? ?? true,
+      isFeatured: (json['is_featured'] ?? json['isFeatured']) as bool? ?? false,
       isFlashSale: json['is_flash_sale'] as bool? ?? false,
       flashSaleEnd: json['flash_sale_end'] != null
           ? DateTime.parse(json['flash_sale_end'])
           : null,
-      cashbackPercent: json['cashback_percent'] as int? ?? 0,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
+      cashbackPercent:
+          (json['cashback_percent'] ?? json['discountPercent']) as int? ?? 0,
+      createdAt: (json['created_at'] ?? json['createdAt']) != null
+          ? DateTime.parse((json['created_at'] ?? json['createdAt']))
           : null,
       moderationStatus: json['moderation_status'] as String?,
       rejectionReason: json['rejection_reason'] as String?,
@@ -87,28 +89,17 @@ class ProductModel {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name_uz': nameUz,
-      'name_ru': nameRu,
-      'description_uz': descriptionUz,
-      'description_ru': descriptionRu,
+      'name': nameUz,
+      'description': descriptionUz,
       'price': price,
-      'old_price': oldPrice,
-      'category_id': categoryId,
-      'subcategory_id': subcategoryId,
-      'shop_id': shopId,
+      'originalPrice': oldPrice,
+      'categoryId': categoryId,
+      'subcategoryId': subcategoryId,
+      'shopId': shopId,
       'images': images,
       'stock': stock,
-      'sold_count': soldCount,
-      'rating': rating,
-      'review_count': reviewCount,
-      'is_active': isActive,
-      'is_featured': isFeatured,
-      'is_flash_sale': isFlashSale,
-      'flash_sale_end': flashSaleEnd?.toIso8601String(),
-      'cashback_percent': cashbackPercent,
-      'moderation_status': moderationStatus,
-      'rejection_reason': rejectionReason,
+      'isActive': isActive,
+      'isFeatured': isFeatured,
     };
   }
 
@@ -157,7 +148,7 @@ class ProductModel {
       'price': price.toInt(),
       'oldPrice': oldPrice?.toInt(),
       'discount': discountPercent,
-      'image': firstImage ?? 'https://via.placeholder.com/150',
+      'image': firstImage ?? '',
       'images': images,
       'rating': rating,
       'sold': soldCount,

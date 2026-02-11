@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'core/config/supabase_config.dart';
+import 'firebase_options.dart';
+import 'core/services/api_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/di/injection.dart';
@@ -34,43 +34,62 @@ import 'features/web/landing/web_landing_page.dart';
 import 'features/web/vendor/web_vendor_landing.dart';
 import 'features/web/vendor/web_vendor_login.dart';
 import 'features/web/vendor/web_vendor_register.dart';
+import 'core/widgets/auth_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase - google-services.json orqali avtomatik ishga tushadi
+  // Firebase - platform-specific options bilan ishga tushirish
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     debugPrint('=== TOPLA: Firebase initialized ===');
   } catch (e) {
     debugPrint('Firebase init error: $e');
+    // google-services.json / GoogleService-Info.plist orqali fallback
+    try {
+      await Firebase.initializeApp();
+    } catch (_) {
+      debugPrint('Firebase fallback init also failed');
+    }
   }
 
-  // Supabase ni ishga tushirish
+  // API Client - saqlangan tokenlarni yuklash
   try {
-    await Supabase.initialize(
-      url: SupabaseConfig.url,
-      anonKey: SupabaseConfig.anonKey,
-    );
-    debugPrint('=== TOPLA: Supabase initialized ===');
+    await ApiClient().loadTokens();
   } catch (e) {
-    debugPrint('=== TOPLA: Supabase init ERROR: $e ===');
+    debugPrint('API Client init error: $e');
   }
 
-  // Dependency Injection ni sozlash
+  // Dependency Injection ni sozlash — bu MAJBURIY, xato bo'lsa ilova ishlamaydi
   try {
     await setupDependencies();
-    debugPrint('=== TOPLA: Dependencies initialized ===');
   } catch (e) {
-    debugPrint('=== TOPLA: DI init ERROR: $e ===');
+    debugPrint('=== TOPLA CRITICAL: DI init FAILED: $e ===');
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Ilovani ishga tushirishda xatolik yuz berdi.\n'
+              'Iltimos, ilovani qayta ishga tushiring.\n\n$e',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, color: Colors.red),
+            ),
+          ),
+        ),
+      ),
+    ));
+    return; // DI fail bo'lsa ilovani davom ettirmaslik
   }
 
   // Internet aloqasini kuzatish
   try {
     await ConnectivityService().initialize();
-    debugPrint('=== TOPLA: Connectivity initialized ===');
   } catch (e) {
-    debugPrint('=== TOPLA: Connectivity init ERROR: $e ===');
+    debugPrint('Connectivity init error: $e');
   }
 
   // Status bar va navigation bar ni sozlash
@@ -89,7 +108,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  debugPrint('=== TOPLA: runApp() chaqirilmoqda ===');
+  debugPrint('=== TOPLA: Starting app ===');
   runApp(const ToplaApp());
 }
 
@@ -155,17 +174,24 @@ class ToplaApp extends StatelessWidget {
               '/auth': (context) => const AuthScreen(),
               '/phone-auth': (context) => const PhoneAuthScreen(),
               '/otp': (context) => const OtpScreen(),
-              '/favorites': (context) => const FavoritesScreen(),
-              '/addresses': (context) => const AddressesScreen(),
-              '/payment-methods': (context) => const PaymentMethodsScreen(),
+              '/favorites': (context) =>
+                  const AuthGuard(child: FavoritesScreen()),
+              '/addresses': (context) =>
+                  const AuthGuard(child: AddressesScreen()),
+              '/payment-methods': (context) =>
+                  const AuthGuard(child: PaymentMethodsScreen()),
               '/help': (context) => const HelpScreen(),
-              '/invite': (context) => const InviteFriendScreen(),
-              '/orders': (context) => const OrdersScreen(showBackButton: true),
+              '/invite': (context) =>
+                  const AuthGuard(child: InviteFriendScreen()),
+              '/orders': (context) =>
+                  const AuthGuard(child: OrdersScreen(showBackButton: true)),
               '/purchased-products': (context) =>
-                  const PurchasedProductsScreen(),
-              '/returns': (context) => const ReturnsScreen(),
-              '/reviews-questions': (context) => const ReviewsQuestionsScreen(),
-              '/mobile-vendor': (context) => const VendorDashboardScreen(),
+                  const AuthGuard(child: PurchasedProductsScreen()),
+              '/returns': (context) => const AuthGuard(child: ReturnsScreen()),
+              '/reviews-questions': (context) =>
+                  const AuthGuard(child: ReviewsQuestionsScreen()),
+              '/mobile-vendor': (context) =>
+                  const AuthGuard(child: VendorDashboardScreen()),
 
               // Web routes - topla.uz
               '/': (context) =>
@@ -175,7 +201,8 @@ class ToplaApp extends StatelessWidget {
               '/vendor': (context) => const WebVendorLanding(),
               '/vendor/login': (context) => const WebVendorLogin(),
               '/vendor/register': (context) => const WebVendorRegister(),
-              '/vendor/dashboard': (context) => const VendorDashboardScreen(),
+              '/vendor/dashboard': (context) =>
+                  const AuthGuard(child: VendorDashboardScreen()),
             },
           );
         },

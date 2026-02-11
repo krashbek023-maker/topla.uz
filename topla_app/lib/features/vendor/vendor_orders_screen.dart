@@ -158,6 +158,15 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
       case OrderStatus.processing:
         color = Colors.purple;
         break;
+      case OrderStatus.readyForPickup:
+        color = Colors.teal;
+        break;
+      case OrderStatus.courierAssigned:
+        color = Colors.indigo;
+        break;
+      case OrderStatus.courierPickedUp:
+        color = Colors.deepPurple;
+        break;
       case OrderStatus.shipping:
         color = Colors.cyan;
         break;

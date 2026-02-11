@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:provider/provider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/localization/app_localizations.dart';
+import '../../core/services/api_client.dart';
+import '../../providers/auth_provider.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -110,8 +112,12 @@ class _OtpScreenState extends State<OtpScreen> {
       final firebaseUser = userCredential.user;
 
       if (firebaseUser != null) {
-        // Supabase'da profil yaratish/yangilash
-        await _createOrUpdateSupabaseProfile(firebaseUser);
+        // Firebase token olish va backend'ga yuborish
+        final firebaseToken = await firebaseUser.getIdToken();
+        if (firebaseToken != null) {
+          await _authenticateWithBackend(
+              firebaseToken, firebaseUser.phoneNumber ?? _phoneNumber ?? '');
+        }
 
         if (mounted) {
           Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
@@ -138,31 +144,33 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
-  Future<void> _createOrUpdateSupabaseProfile(User firebaseUser) async {
+  Future<void> _authenticateWithBackend(
+      String firebaseToken, String phone) async {
     try {
-      final supabase = Supabase.instance.client;
+      final api = ApiClient();
+      final res = await api.post('/auth/login',
+          body: {
+            'firebaseToken': firebaseToken,
+            'phone': phone,
+          },
+          auth: false);
 
-      // Telefon raqamini normalizatsiya qilish
-      final phone = firebaseUser.phoneNumber ?? _phoneNumber ?? '';
+      final data = res.data as Map<String, dynamic>?;
+      if (data != null) {
+        final accessToken = data['accessToken'] as String?;
+        final refreshToken = data['refreshToken'] as String?;
+        if (accessToken != null) {
+          await api.setTokens(
+              accessToken: accessToken, refreshToken: refreshToken ?? '');
+        }
+      }
 
-      // Profil mavjudligini tekshirish
-      final existing = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('phone', phone)
-          .maybeSingle();
-
-      if (existing == null) {
-        // Yangi profil yaratish
-        await supabase.from('profiles').insert({
-          'id': firebaseUser.uid,
-          'phone': phone,
-          'role': 'user',
-          'created_at': DateTime.now().toIso8601String(),
-        });
+      // AuthProvider state'ni yangilash
+      if (mounted) {
+        await context.read<AuthProvider>().loadProfile();
       }
     } catch (e) {
-      debugPrint('Supabase profile error: $e');
+      debugPrint('Backend auth error: $e');
       // Xatolik bo'lsa ham davom etamiz
     }
   }

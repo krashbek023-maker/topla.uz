@@ -27,15 +27,16 @@ class BannerModel {
   factory BannerModel.fromJson(Map<String, dynamic> json) {
     return BannerModel(
       id: json['id'] as String,
-      titleUz: json['title_uz'] as String?,
-      titleRu: json['title_ru'] as String?,
-      subtitleUz: json['subtitle_uz'] as String?,
-      subtitleRu: json['subtitle_ru'] as String?,
-      imageUrl: json['image_url'] as String,
-      actionType: json['action_type'] as String? ?? 'none',
-      actionValue: json['action_value'] as String?,
-      sortOrder: json['sort_order'] as int? ?? 0,
-      isActive: json['is_active'] as bool? ?? true,
+      titleUz: (json['title_uz'] ?? json['titleUz']) as String?,
+      titleRu: (json['title_ru'] ?? json['titleRu']) as String?,
+      subtitleUz: (json['subtitle_uz'] ?? json['subtitleUz']) as String?,
+      subtitleRu: (json['subtitle_ru'] ?? json['subtitleRu']) as String?,
+      imageUrl: (json['image_url'] ?? json['imageUrl']) as String,
+      actionType:
+          (json['action_type'] ?? json['actionType']) as String? ?? 'none',
+      actionValue: (json['action_value'] ?? json['actionValue']) as String?,
+      sortOrder: (json['sort_order'] ?? json['sortOrder']) as int? ?? 0,
+      isActive: (json['is_active'] ?? json['isActive']) as bool? ?? true,
     );
   }
 

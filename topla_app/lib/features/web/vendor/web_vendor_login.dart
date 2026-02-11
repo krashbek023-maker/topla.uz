@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/services/api_client.dart';
 import '../../../core/constants/constants.dart';
 import '../widgets/web_header.dart';
 import '../widgets/web_footer.dart';
@@ -280,30 +280,32 @@ class _WebVendorLoginState extends State<WebVendorLogin> {
     setState(() => _isLoading = true);
 
     try {
-      final supabase = Supabase.instance.client;
+      final api = ApiClient();
 
-      final response = await supabase.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final response = await api.post('/auth/vendor/login', body: {
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+      });
 
-      if (response.user == null) {
-        throw Exception('Kirish muvaffaqiyatsiz');
-      }
-
-      // Vendor ekanligini tekshirish
-      final userData = response.user!.userMetadata;
-      final role = userData?['role'] as String?;
+      final data = response.dataMap;
+      final role = data['role'] as String?;
 
       if (role != 'vendor') {
-        await supabase.auth.signOut();
         throw Exception('Bu panel faqat sotuvchilar uchun');
+      }
+
+      // Save tokens
+      if (data['accessToken'] != null) {
+        await api.setTokens(
+          accessToken: data['accessToken'] as String,
+          refreshToken: data['refreshToken'] as String? ?? '',
+        );
       }
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/vendor/dashboard');
       }
-    } on AuthException catch (e) {
+    } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -366,9 +368,10 @@ class _WebVendorLoginState extends State<WebVendorLogin> {
               if (emailController.text.isEmpty) return;
 
               try {
-                await Supabase.instance.client.auth.resetPasswordForEmail(
-                  emailController.text.trim(),
-                );
+                final api = ApiClient();
+                await api.post('/auth/reset-password', body: {
+                  'email': emailController.text.trim(),
+                });
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(

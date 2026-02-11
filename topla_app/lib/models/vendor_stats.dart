@@ -27,17 +27,24 @@ class VendorStats {
   });
 
   factory VendorStats.fromJson(Map<String, dynamic> json) {
+    // Backend returns nested: {balance, orders: {total, today, month}, products: {total, active}, revenue: {total, today, month}}
+    final orders = json['orders'] as Map<String, dynamic>?;
+    final products = json['products'] as Map<String, dynamic>?;
+    final revenue = json['revenue'] as Map<String, dynamic>?;
+
     return VendorStats(
-      shopId: json['shop_id'],
-      shopName: json['shop_name'],
+      shopId: json['shop_id'] ?? json['shopId'],
+      shopName: json['shop_name'] ?? json['shopName'],
       balance: (json['balance'] ?? 0).toDouble(),
-      totalProducts: json['total_products'] ?? 0,
-      activeProducts: json['active_products'] ?? 0,
-      pendingProducts: json['pending_products'] ?? 0,
-      todayOrders: json['today_orders'] ?? 0,
-      todayRevenue: (json['today_revenue'] ?? 0).toDouble(),
-      monthlyOrders: json['monthly_orders'] ?? 0,
-      monthlyRevenue: (json['monthly_revenue'] ?? 0).toDouble(),
+      totalProducts: products?['total'] ?? json['total_products'] ?? 0,
+      activeProducts: products?['active'] ?? json['active_products'] ?? 0,
+      pendingProducts: products?['inactive'] ?? json['pending_products'] ?? 0,
+      todayOrders: orders?['today'] ?? json['today_orders'] ?? 0,
+      todayRevenue:
+          (revenue?['today'] ?? json['today_revenue'] ?? 0).toDouble(),
+      monthlyOrders: orders?['month'] ?? json['monthly_orders'] ?? 0,
+      monthlyRevenue:
+          (revenue?['month'] ?? json['monthly_revenue'] ?? 0).toDouble(),
       rating: (json['rating'] ?? 0).toDouble(),
     );
   }

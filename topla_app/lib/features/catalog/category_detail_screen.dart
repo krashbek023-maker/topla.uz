@@ -85,9 +85,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     try {
       final productsProvider = context.read<ProductsProvider>();
 
-      // Subcategoriyalarni yuklash
-      _subCategories =
-          await productsProvider.getSubCategories(widget.category.id);
+      // Subcategoriyalarni category modeldan olish (API allaqachon qaytargan)
+      _subCategories = widget.category.subcategories;
 
       // Initial data yuklandi - endi qaysi view ko'rsatishni bilamiz
       if (mounted) {

@@ -17,25 +17,25 @@ class ProductFilter {
   // === Yangi Uzum-style filterlar ===
   /// Tanlangan brendlar
   final Set<String> brandIds;
-  
+
   /// Tanlangan ranglar
   final Set<String> colorIds;
-  
+
   /// Yetkazib berish muddati (soat)
   /// null = hammasi, 2 = 2 soat ichida, 24 = ertaga, 72 = 3 kun ichida
   final int? deliveryHours;
-  
+
   /// Click yetkazib berish (tez yetkazib berish)
   final bool? isClickDelivery;
-  
+
   /// Original mahsulot (sifat kafolati)
   final bool? isOriginal;
-  
+
   /// Kategoriyaga xos atributlar
   /// Key: attribute_key (masalan: 'ram', 'storage', 'screen_size')
   /// Value: SelectedFilterValue (tanlangan qiymatlar)
   final Map<String, SelectedFilterValue> attributes;
-  
+
   /// Tanlangan kategoriya ID (subkategoriya)
   final String? selectedCategoryId;
 
@@ -128,11 +128,16 @@ class ProductFilter {
       sortAscending: sortAscending ?? this.sortAscending,
       brandIds: brandIds ?? this.brandIds,
       colorIds: colorIds ?? this.colorIds,
-      deliveryHours: clearDeliveryHours ? null : (deliveryHours ?? this.deliveryHours),
-      isClickDelivery: clearIsClickDelivery ? null : (isClickDelivery ?? this.isClickDelivery),
+      deliveryHours:
+          clearDeliveryHours ? null : (deliveryHours ?? this.deliveryHours),
+      isClickDelivery: clearIsClickDelivery
+          ? null
+          : (isClickDelivery ?? this.isClickDelivery),
       isOriginal: clearIsOriginal ? null : (isOriginal ?? this.isOriginal),
       attributes: attributes ?? this.attributes,
-      selectedCategoryId: clearSelectedCategoryId ? null : (selectedCategoryId ?? this.selectedCategoryId),
+      selectedCategoryId: clearSelectedCategoryId
+          ? null
+          : (selectedCategoryId ?? this.selectedCategoryId),
     );
   }
 
@@ -193,10 +198,10 @@ class ProductFilter {
   static const String sortByNewest = 'created_at';
   static const String sortByDiscount = 'discount';
 
-  /// Supabase query uchun filter map
+  /// API query uchun filter map
   Map<String, dynamic> toQueryMap() {
     final map = <String, dynamic>{};
-    
+
     if (minPrice != null) map['min_price'] = minPrice;
     if (maxPrice != null) map['max_price'] = maxPrice;
     if (minRating != null) map['min_rating'] = minRating;
@@ -209,12 +214,12 @@ class ProductFilter {
     if (isClickDelivery != null) map['is_click_delivery'] = isClickDelivery;
     if (isOriginal != null) map['is_original'] = isOriginal;
     if (selectedCategoryId != null) map['category_id'] = selectedCategoryId;
-    
+
     // Kategoriya atributlari
     for (final entry in attributes.entries) {
       map.addAll(entry.value.toQueryMap());
     }
-    
+
     return map;
   }
 

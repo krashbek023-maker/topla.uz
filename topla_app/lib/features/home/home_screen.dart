@@ -484,6 +484,30 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'milk':
         return Iconsax.milk;
 
+      // Kiyim
+      case 'shirt':
+        return Iconsax.shopping_bag;
+
+      // Kitob
+      case 'book':
+        return Iconsax.book;
+
+      // Xobbi
+      case 'colorfilter':
+        return Iconsax.colorfilter;
+
+      // Maktab
+      case 'pen_tool':
+        return Iconsax.pen_tool;
+
+      // Uy kimyo - quti
+      case 'box_1':
+        return Iconsax.box_1;
+
+      // O'yin konsol
+      case 'driver':
+        return Iconsax.driver;
+
       // Boshqalar
       case 'car':
         return Iconsax.car;
@@ -566,6 +590,44 @@ class _HomeScreenState extends State<HomeScreen> {
         return const Color(0xFF0284C7);
       case 'cake':
         return const Color(0xFF16A34A);
+      case 'shirt':
+        return const Color(0xFF475569);
+      case 'bag_2':
+        return const Color(0xFF7C3AED);
+      case 'diamonds':
+        return const Color(0xFFD946EF);
+      case 'drop':
+        return const Color(0xFF06B6D4);
+      case 'brush_1':
+        return const Color(0xFFF472B6);
+      case 'home_2':
+        return const Color(0xFF14B8A6);
+      case 'lamp_charge':
+        return const Color(0xFF059669);
+      case 'ruler':
+        return const Color(0xFF92400E);
+      case 'box_1':
+        return const Color(0xFF6366F1);
+      case 'game':
+        return const Color(0xFFEF4444);
+      case 'pen_tool':
+        return const Color(0xFF4B5563);
+      case 'milk':
+        return const Color(0xFF16A34A);
+      case 'cup':
+        return const Color(0xFF7C2D12);
+      case 'driver':
+        return const Color(0xFFDC2626);
+      case 'book':
+        return const Color(0xFF1D4ED8);
+      case 'colorfilter':
+        return const Color(0xFFE11D48);
+      case 'pet':
+        return const Color(0xFFF59E0B);
+      case 'lovely':
+        return const Color(0xFFEC4899);
+      case 'gift':
+        return const Color(0xFFD946EF);
       case 'car':
         return const Color(0xFF64748B);
 
@@ -659,9 +721,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeaturedProductsGrid(ProductsProvider productsProvider) {
-    final featuredProducts = productsProvider.featuredProducts;
+    // Agar filter tanlangan bo'lsa filteredProducts ni, aks holda featuredProducts ni ko'rsatish
+    final bool isFilterActive = _selectedFilter != 'Siz uchun';
+    final products = isFilterActive
+        ? productsProvider.filteredProducts
+        : productsProvider.featuredProducts;
+    final isLoading = isFilterActive
+        ? productsProvider.isFilteredLoading
+        : productsProvider.isFeaturedLoading;
 
-    if (productsProvider.isFeaturedLoading) {
+    if (isLoading) {
       // Shimmer skeleton grid loading
       return SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
@@ -680,7 +749,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (featuredProducts.isEmpty) {
+    if (products.isEmpty) {
       return SliverToBoxAdapter(
         child: Container(
           height: 200,
@@ -717,7 +786,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
-            final product = featuredProducts[index];
+            final product = products[index];
             return ProductCard(
               name: product.nameUz,
               price: product.price.toInt(),
@@ -732,7 +801,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onFavoriteToggle: () => _toggleFavorite(product.id),
             );
           },
-          childCount: featuredProducts.length > 8 ? 8 : featuredProducts.length,
+          childCount: products.length > 8 ? 8 : products.length,
         ),
       ),
     );

@@ -1,0 +1,42 @@
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# Dependencies stage
+FROM base AS deps
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
+
+# Build stage
+FROM base AS build
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY prisma ./prisma
+RUN npx prisma generate
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+# Production stage
+FROM base AS production
+ENV NODE_ENV=production
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy built app
+COPY --from=build /app/dist ./dist
+
+# Copy Prisma schema & generated client
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+
+# Copy package.json for scripts
+COPY package.json ./
+
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/app.js"]

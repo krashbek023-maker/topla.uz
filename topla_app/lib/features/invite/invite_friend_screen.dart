@@ -8,6 +8,7 @@ class InviteFriendScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // TODO: referral kodni foydalanuvchi profilidan olish
     const String referralCode = 'TOPLA2024';
     const String referralLink = 'https://topla.uz/invite/TOPLA2024';
 
@@ -379,7 +380,8 @@ class InviteFriendScreen extends StatelessWidget {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: (option['color'] as Color).withValues(alpha: 0.1),
+                        color:
+                            (option['color'] as Color).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(

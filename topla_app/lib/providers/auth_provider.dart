@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/repositories/repositories.dart';
 import '../models/models.dart';
 
@@ -8,9 +7,6 @@ import '../models/models.dart';
 /// Repository pattern bilan - backend o'zgarganda bu kod o'zgarmaydi
 class AuthProvider extends ChangeNotifier {
   final IAuthRepository _authRepo;
-
-  /// Auth state subscription - memory leak oldini olish uchun
-  StreamSubscription<AuthState>? _authStateSubscription;
 
   AuthProvider(this._authRepo) {
     _init();
@@ -30,35 +26,10 @@ class AuthProvider extends ChangeNotifier {
   String? get phoneNumber => _profile?.phone;
 
   void _init() {
-    // Auth state changes ni kuzatish
-    // Subscription ni saqlash - dispose da bekor qilish uchun
-    _authStateSubscription =
-        Supabase.instance.client.auth.onAuthStateChange.listen(
-      (data) {
-        if (data.session?.user != null) {
-          loadProfile();
-        } else {
-          _profile = null;
-          notifyListeners();
-        }
-      },
-      onError: (error) {
-        debugPrint('Auth state change error: $error');
-      },
-    );
-
-    // Profil yuklash
+    // Profil yuklash (agar token saqlangan bo'lsa)
     if (isLoggedIn) {
       _loadOrCreateProfile();
     }
-  }
-
-  @override
-  void dispose() {
-    // Memory leak oldini olish - subscription ni bekor qilish
-    _authStateSubscription?.cancel();
-    _authStateSubscription = null;
-    super.dispose();
   }
 
   Future<void> _loadOrCreateProfile() async {
@@ -71,70 +42,14 @@ class AuthProvider extends ChangeNotifier {
     try {
       _profile = await _authRepo.getProfile();
 
-      // Agar profil yo'q bo'lsa yoki Google orqali kirgan bo'lsa - profilni yaratish/yangilash
-      if (currentUserId != null) {
-        final user = Supabase.instance.client.auth.currentUser;
-        final metadata = user?.userMetadata;
-
-        // Google orqali kirgan foydalanuvchi ma'lumotlarini olish
-        final googleName =
-            metadata?['full_name'] as String? ?? metadata?['name'] as String?;
-        final googleAvatar = metadata?['avatar_url'] as String? ??
-            metadata?['picture'] as String?;
-        final googleEmail = user?.email;
-
-        // Profil yo'q bo'lsa yoki Google ma'lumotlari mavjud bo'lsa
-        if (_profile == null) {
-          // Yangi profil yaratish
-          String? firstName;
-          String? lastName;
-
-          if (googleName != null && googleName.isNotEmpty) {
-            final nameParts = googleName.split(' ');
-            firstName = nameParts.first;
-            lastName =
-                nameParts.length > 1 ? nameParts.sublist(1).join(' ') : null;
-          }
-
-          final newProfile = UserProfile(
-            id: currentUserId!,
-            firstName: firstName,
-            lastName: lastName,
-            fullName: googleName,
-            email: googleEmail,
-            avatarUrl: googleAvatar,
-          );
-
-          await _authRepo.upsertProfile(newProfile);
-          _profile = newProfile;
-        } else if (_profile!.firstName == null &&
-            _profile!.avatarUrl == null &&
-            googleName != null) {
-          // Profil bor lekin Google ma'lumotlari yo'q - yangilash
-          String? firstName;
-          String? lastName;
-
-          if (googleName.isNotEmpty) {
-            final nameParts = googleName.split(' ');
-            firstName = nameParts.first;
-            lastName =
-                nameParts.length > 1 ? nameParts.sublist(1).join(' ') : null;
-          }
-
-          await _authRepo.updateProfile(
-            firstName: firstName,
-            lastName: lastName,
-            email: googleEmail ?? _profile!.email,
-            avatarUrl: googleAvatar,
-          );
-
-          // Profilni qayta yuklash
-          _profile = await _authRepo.getProfile();
-        }
+      // Agar profil yo'q bo'lsa - backend tomonidan avtomatik yaratilgan bo'lishi kerak
+      if (_profile == null && currentUserId != null) {
+        debugPrint('Profil topilmadi, qayta yuklash...');
+        _profile = await _authRepo.getProfile();
       }
     } catch (e) {
       _error = e.toString();
-      debugPrint('Profile load/create error: $e');
+      debugPrint('Profile load error: $e');
     }
 
     _isLoading = false;

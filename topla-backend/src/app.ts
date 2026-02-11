@@ -1,0 +1,172 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import { createServer } from 'http';
+
+import { env } from './config/env.js';
+import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { initFirebase } from './config/firebase.js';
+import { initStorage } from './config/storage.js';
+import { initWebSocket } from './websocket/socket.js';
+import { errorHandler } from './middleware/error.js';
+
+// Route modules
+import { authRoutes } from './modules/auth/auth.routes.js';
+import { productRoutes } from './modules/products/product.routes.js';
+import { shopRoutes } from './modules/shops/shop.routes.js';
+import { orderRoutes } from './modules/orders/order.routes.js';
+import { courierRoutes } from './modules/courier/courier.routes.js';
+import { notificationRoutes } from './modules/notifications/notification.routes.js';
+import { addressRoutes } from './modules/addresses/address.routes.js';
+import { bannerRoutes } from './modules/banners/banner.routes.js';
+import { uploadRoutes } from './modules/upload/upload.routes.js';
+import { vendorRoutes } from './modules/vendor/vendor.routes.js';
+import { paymentRoutes } from './modules/payments/payment.routes.js';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
+
+// ============================================
+// Create Fastify App
+// ============================================
+
+const app = Fastify({
+  logger: {
+    level: env.LOG_LEVEL,
+    transport:
+      env.NODE_ENV === 'development'
+        ? {
+            target: 'pino-pretty',
+            options: {
+              translateTime: 'HH:MM:ss Z',
+              ignore: 'pid,hostname',
+            },
+          }
+        : undefined,
+  },
+});
+
+// ============================================
+// Plugins
+// ============================================
+
+await app.register(cors, {
+  origin: env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean),
+  credentials: true,
+});
+
+await app.register(helmet, {
+  contentSecurityPolicy: false,
+});
+
+await app.register(rateLimit, {
+  max: 100,
+  timeWindow: '1 minute',
+});
+
+// Static files (uploaded images in development)
+await app.register(fastifyStatic, {
+  root: path.join(process.cwd(), 'uploads'),
+  prefix: '/uploads/',
+  decorateReply: false,
+});
+
+// ============================================
+// Error Handler
+// ============================================
+
+app.setErrorHandler(errorHandler);
+
+// ============================================
+// Health Check
+// ============================================
+
+app.get('/health', async () => ({
+  status: 'ok',
+  timestamp: new Date().toISOString(),
+  uptime: process.uptime(),
+  version: '1.0.0',
+}));
+
+// ============================================
+// API Routes (v1)
+// ============================================
+
+await app.register(
+  async (api) => {
+    await api.register(authRoutes);
+    await api.register(productRoutes);
+    await api.register(shopRoutes);
+    await api.register(orderRoutes);
+    await api.register(courierRoutes);
+    await api.register(notificationRoutes);
+    await api.register(addressRoutes);
+    await api.register(bannerRoutes);
+    await api.register(uploadRoutes);
+    await api.register(vendorRoutes);
+    await api.register(paymentRoutes);
+  },
+  { prefix: '/api/v1' },
+);
+
+// ============================================
+// Start Server
+// ============================================
+
+async function start(): Promise<void> {
+  try {
+    // 1. Database
+    await connectDatabase();
+
+    // 2. Firebase (push notifications)
+    initFirebase();
+
+    // 3. S3 Storage
+    initStorage();
+
+    // 4. Start HTTP server
+    const address = await app.listen({
+      port: env.PORT,
+      host: '0.0.0.0', // Force listen on all interfaces
+    });
+
+    // 5. WebSocket (Socket.IO) — same HTTP server
+    const httpServer = app.server as any;
+    initWebSocket(httpServer);
+
+    console.log(`
+╔══════════════════════════════════════════════╗
+║                                              ║
+║   🚀 TOPLA Backend API Server               ║
+║                                              ║
+║   HTTP:  ${address}                          
+║   WS:    ${address.replace('http', 'ws')}/ws 
+║   Env:   ${env.NODE_ENV}                     
+║                                              ║
+║   API:   ${address}/api/v1                   
+║   Docs:  ${address}/health                   
+║                                              ║
+╚══════════════════════════════════════════════╝
+    `);
+  } catch (error) {
+    console.error('❌ Server start failed:', error);
+    process.exit(1);
+  }
+}
+
+// ============================================
+// Graceful Shutdown
+// ============================================
+
+async function shutdown(signal: string): Promise<void> {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+  await app.close();
+  await disconnectDatabase();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Start!
+start();

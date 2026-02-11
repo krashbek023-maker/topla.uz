@@ -68,7 +68,7 @@ Bu dokument Google Play Console'dagi Data Safety formini to'ldirishda yordam ber
 | Firebase Authentication | Email, Phone | User authentication |
 | Firebase Analytics | App usage, Device info | Analytics |
 | Firebase Crashlytics | Crash logs, Device info | Stability monitoring |
-| Supabase | All user data | Backend storage |
+| TOPLA API Backend | All user data | Backend storage |
 | Click/Payme | Payment info | Payment processing |
 | Delivery Partners | Name, Address, Phone | Order delivery |
 
@@ -90,7 +90,7 @@ Bu dokument Google Play Console'dagi Data Safety formini to'ldirishda yordam ber
 | Type | Method |
 | :--- | :--- |
 | In transit | TLS 1.3 / HTTPS |
-| At rest | AES-256 (Supabase) |
+| At rest | AES-256 (PostgreSQL) |
 | Sensitive data | Additional encryption layer |
 
 ### Security Measures
@@ -107,7 +107,7 @@ Bu dokument Google Play Console'dagi Data Safety formini to'ldirishda yordam ber
 
 ## 🗑️ Data Deletion
 
-### User Can Delete:
+### User Can Delete
 
 | Data | How |
 | :--- | :--- |
@@ -117,7 +117,7 @@ Bu dokument Google Play Console'dagi Data Safety formini to'ldirishda yordam ber
 | Search history | Settings → Privacy → Clear History |
 | Favorites | Manual removal from favorites |
 
-### Retention Policy:
+### Retention Policy
 
 | Data Type | Retention Period |
 | :--- | :--- |
@@ -126,7 +126,7 @@ Bu dokument Google Play Console'dagi Data Safety formini to'ldirishda yordam ber
 | Analytics | 26 months |
 | Crash logs | 90 days |
 
-### Deletion Request:
+### Deletion Request
 
 Users can request full data deletion by:
 

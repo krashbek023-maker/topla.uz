@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/services/api_client.dart';
 
 /// Bildirishnomalar xizmati
 class NotificationService {
@@ -10,8 +10,7 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  SupabaseClient get _client => Supabase.instance.client;
-  String? get _currentUserId => _client.auth.currentUser?.id;
+  final ApiClient _api = ApiClient();
 
   static const String _notificationPermissionKey =
       'notification_permission_asked';
@@ -73,12 +72,12 @@ class NotificationService {
       final token = await getToken();
       if (token == null) return;
 
-      final userId = _currentUserId;
-      if (userId == null) return;
+      if (!_api.hasToken) return;
 
-      await _client.from('profiles').update({
-        'fcm_token': token,
-      }).eq('id', userId);
+      await _api.post('/auth/fcm-token', body: {
+        'fcmToken': token,
+        'platform': 'mobile',
+      });
 
       debugPrint('✅ FCM token saqlandi: ${token.substring(0, 20)}...');
     } catch (e) {

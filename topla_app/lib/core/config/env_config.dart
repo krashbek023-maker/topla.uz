@@ -7,16 +7,12 @@
 /// ```bash
 /// # Development
 /// flutter run --dart-define=ENV=dev \
-///   --dart-define=SUPABASE_URL=https://xxx.supabase.co \
-///   --dart-define=SUPABASE_ANON_KEY=xxx \
 ///   --dart-define=FIREBASE_WEB_API_KEY=xxx \
 ///   --dart-define=FIREBASE_ANDROID_API_KEY=xxx \
 ///   --dart-define=FIREBASE_IOS_API_KEY=xxx
 ///
 /// # Production APK
 /// flutter build apk --release --dart-define=ENV=prod \
-///   --dart-define=SUPABASE_URL=$SUPABASE_URL \
-///   --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
 ///   --dart-define=FIREBASE_WEB_API_KEY=$FIREBASE_WEB_API_KEY \
 ///   --dart-define=FIREBASE_ANDROID_API_KEY=$FIREBASE_ANDROID_API_KEY \
 ///   --dart-define=FIREBASE_IOS_API_KEY=$FIREBASE_IOS_API_KEY
@@ -55,24 +51,6 @@ class EnvConfig {
 
   /// Production mode
   static bool get isProduction => environment == Environment.prod;
-
-  // ================= SUPABASE =================
-
-  /// Supabase Project URL
-  /// --dart-define=SUPABASE_URL=xxx orqali beriladi
-  static String get supabaseUrl {
-    const url = String.fromEnvironment('SUPABASE_URL');
-    _validateNotEmpty(url, 'SUPABASE_URL');
-    return url;
-  }
-
-  /// Supabase Anon Key
-  /// --dart-define=SUPABASE_ANON_KEY=xxx orqali beriladi
-  static String get supabaseAnonKey {
-    const key = String.fromEnvironment('SUPABASE_ANON_KEY');
-    _validateNotEmpty(key, 'SUPABASE_ANON_KEY');
-    return key;
-  }
 
   // ================= FIREBASE =================
 
@@ -117,7 +95,7 @@ class EnvConfig {
 
   // ================= STORAGE BUCKETS =================
 
-  /// Supabase storage bucket nomlari
+  /// Storage bucket nomlari
   static const String productsBucket = 'products';
   static const String bannersBucket = 'banners';
   static const String avatarsBucket = 'avatars';
@@ -125,29 +103,15 @@ class EnvConfig {
 
   // ================= VALIDATION =================
 
-  /// Muhim kalitlar mavjudligini tekshirish
-  static void _validateNotEmpty(String value, String keyName) {
-    if (value.isEmpty) {
-      throw EnvironmentConfigException(
-        '$keyName topilmadi! '
-        'Build qilayotganda --dart-define=$keyName=xxx parametrini qo\'shing.',
-      );
-    }
-  }
-
   /// Barcha kerakli environment variable'lar mavjudligini tekshirish
   /// App ishga tushganda chaqiriladi
   static void validateAllKeys() {
     final missingKeys = <String>[];
 
-    const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-    const supabaseKey = String.fromEnvironment('SUPABASE_ANON_KEY');
     const webKey = String.fromEnvironment('FIREBASE_WEB_API_KEY');
     const androidKey = String.fromEnvironment('FIREBASE_ANDROID_API_KEY');
     const iosKey = String.fromEnvironment('FIREBASE_IOS_API_KEY');
 
-    if (supabaseUrl.isEmpty) missingKeys.add('SUPABASE_URL');
-    if (supabaseKey.isEmpty) missingKeys.add('SUPABASE_ANON_KEY');
     if (webKey.isEmpty) missingKeys.add('FIREBASE_WEB_API_KEY');
     if (androidKey.isEmpty) missingKeys.add('FIREBASE_ANDROID_API_KEY');
     if (iosKey.isEmpty) missingKeys.add('FIREBASE_IOS_API_KEY');
@@ -163,9 +127,8 @@ class EnvConfig {
   /// Development uchun test qiymatlari mavjudligini tekshirish
   /// Faqat debug mode da ishlaydi
   static bool hasDevConfig() {
-    const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-    const supabaseKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-    return supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty;
+    const webKey = String.fromEnvironment('FIREBASE_WEB_API_KEY');
+    return webKey.isNotEmpty;
   }
 }
 

@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../core/repositories/repositories.dart';
 import '../core/utils/app_logger.dart';
 import '../models/models.dart';
-import '../services/supabase_service.dart';
 
 /// Mahsulotlar holati uchun Provider
 /// Repository pattern bilan - backend o'zgarganda bu kod o'zgarmaydi
@@ -341,9 +340,13 @@ class ProductsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Chegirmali mahsulotlarni olish
+      // Backend'dan chegirmali mahsulotlarni olish
+      _filteredProducts = await _productRepo.getProducts(
+        limit: 20,
+      );
+      // Client-side filter: faqat chegirmali
       _filteredProducts =
-          _allProducts.where((p) => p.discountPercent > 0).toList();
+          _filteredProducts.where((p) => p.discountPercent > 0).toList();
 
       if (_filteredProducts.isEmpty) {
         _filteredProducts = await _productRepo.getFlashSaleProducts();
@@ -363,8 +366,9 @@ class ProductsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Narx bo'yicha filtrlash
-      _filteredProducts = _allProducts.where((p) {
+      // Backend'dan barcha mahsulotlarni olib, narx bo'yicha filtrlash
+      final allProducts = await _productRepo.getProducts(limit: 50);
+      _filteredProducts = allProducts.where((p) {
         if (minPrice != null && p.price < minPrice) return false;
         if (maxPrice != null && p.price > maxPrice) return false;
         return true;
@@ -469,46 +473,10 @@ class ProductsProvider extends ChangeNotifier {
     }
   }
 
-  /// Products real-time subscriptionni boshlash
+  /// Products real-time subscriptionni boshlash (disabled - using API polling)
   void _startProductsRealtimeSubscription() {
-    _productsSubscription?.cancel();
-    _productsSubscription = SupabaseService.productsStream().listen(
-      (data) {
-        AppLogger.d(_tag, 'Realtime update: ${data.length} products');
-        // Yangi mahsulotlarni qo'shish
-        final newProducts = data.map((e) => ProductModel.fromJson(e)).toList();
-
-        // Mavjud mahsulotlar bilan solishtirish
-        bool hasChanges = false;
-        for (final newProduct in newProducts) {
-          final existingIndex =
-              _featuredProducts.indexWhere((p) => p.id == newProduct.id);
-          if (existingIndex == -1) {
-            // Yangi mahsulot
-            _featuredProducts.insert(0, newProduct);
-            hasChanges = true;
-          } else {
-            // Mavjud mahsulotni solishtirish - narx, nom, stock o'zgargan bo'lsa yangilash
-            final existing = _featuredProducts[existingIndex];
-            if (existing.price != newProduct.price ||
-                existing.nameUz != newProduct.nameUz ||
-                existing.stock != newProduct.stock ||
-                existing.isActive != newProduct.isActive) {
-              _featuredProducts[existingIndex] = newProduct;
-              hasChanges = true;
-            }
-          }
-        }
-
-        if (hasChanges) {
-          _featuredLoaded = true;
-          notifyListeners();
-        }
-      },
-      onError: (e) {
-        AppLogger.e(_tag, 'Products realtime error', e);
-      },
-    );
+    // Real-time subscription disabled - using API polling instead
+    // TODO: Implement Socket.IO based real-time updates
   }
 
   /// Real-time subscriptionni to'xtatish

@@ -360,14 +360,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             children: [
               Icon(icon, color: Colors.grey.shade500),
               const SizedBox(width: 12),
-              Text(
-                value,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 16,
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               if (hasValue)
                 Container(
                   padding:

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/localization/app_localizations.dart';
+import '../../core/services/api_client.dart';
+import '../../providers/auth_provider.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
   const PhoneAuthScreen({super.key});
@@ -46,9 +49,41 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) async {
           // Android: Avtomatik tekshirish
-          await FirebaseAuth.instance.signInWithCredential(credential);
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, '/main');
+          try {
+            final userCredential =
+                await FirebaseAuth.instance.signInWithCredential(credential);
+            final firebaseUser = userCredential.user;
+            if (firebaseUser != null) {
+              final token = await firebaseUser.getIdToken();
+              if (token != null && mounted) {
+                // Backend'ga kirish
+                final api = ApiClient();
+                final res = await api.post('/auth/login',
+                    body: {
+                      'firebaseToken': token,
+                      'phone': phoneNumber,
+                    },
+                    auth: false);
+                final data = res.data as Map<String, dynamic>?;
+                if (data != null) {
+                  final accessToken = data['accessToken'] as String?;
+                  final refreshToken = data['refreshToken'] as String?;
+                  if (accessToken != null) {
+                    await api.setTokens(
+                        accessToken: accessToken,
+                        refreshToken: refreshToken ?? '');
+                  }
+                }
+                if (mounted) {
+                  await context.read<AuthProvider>().loadProfile();
+                  if (!mounted) return;
+                  Navigator.pushNamedAndRemoveUntil(
+                      context, '/main', (route) => false);
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Auto-verify error: $e');
           }
         },
         verificationFailed: (FirebaseAuthException e) {

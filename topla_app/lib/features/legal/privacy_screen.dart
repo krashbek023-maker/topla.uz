@@ -110,7 +110,7 @@ Biz ma'lumotlaringizni uchinchi tomonlarga sotmaymiz yoki ijaraga bermaymiz.''',
 
 🔐 Texnik choralar:
 • SSL/TLS shifrlash
-• Xavfsiz serverlar (Supabase, AWS)
+• Xavfsiz serverlar (AWS, Cloud)
 • Muntazam xavfsizlik auditi
 • Ma'lumotlarni shifrlash
 
@@ -188,7 +188,7 @@ Biz ataylab 18 yoshgacha bo'lgan shaxslardan ma'lumot yig'maymiz. Agar siz voyag
               '10. XALQARO MA\'LUMOT UZATISH',
               '''Sizning ma'lumotlaringiz O'zbekiston Respublikasi hududida joylashgan serverlarda saqlanadi.
 
-Ba'zi xizmat ko'rsatuvchilar (Firebase, Supabase) xalqaro serverlarda ma'lumotlarni qayta ishlashi mumkin. Bunday hollarda tegishli himoya choralari ko'riladi.''',
+Ba'zi xizmat ko'rsatuvchilar (Firebase) xalqaro serverlarda ma'lumotlarni qayta ishlashi mumkin. Bunday hollarda tegishli himoya choralari ko'riladi.''',
             ),
 
             _buildSection(

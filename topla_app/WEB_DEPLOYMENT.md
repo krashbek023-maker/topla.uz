@@ -18,6 +18,7 @@ flutter build web --release
 ## Vercel bilan Deploy
 
 ### 1. Vercel CLI o'rnatish
+
 ```bash
 npm i -g vercel
 ```
@@ -25,6 +26,7 @@ npm i -g vercel
 ### 2. Project sozlash
 
 **vercel.json** fayli:
+
 ```json
 {
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
@@ -40,6 +42,7 @@ npm i -g vercel
 ```
 
 ### 3. Deploy qilish
+
 ```bash
 cd build/web
 vercel --prod
@@ -48,16 +51,19 @@ vercel --prod
 ## Firebase Hosting bilan Deploy
 
 ### 1. Firebase CLI o'rnatish
+
 ```bash
 npm install -g firebase-tools
 ```
 
 ### 2. Firebase initialize
+
 ```bash
 firebase init hosting
 ```
 
 **firebase.json**:
+
 ```json
 {
   "hosting": {
@@ -74,6 +80,7 @@ firebase init hosting
 ```
 
 ### 3. Deploy
+
 ```bash
 flutter build web --release
 firebase deploy --only hosting
@@ -123,7 +130,7 @@ server {
 ## Route'lar
 
 | Route | Sahifa | Tavsif |
-|-------|--------|--------|
+| :--- | :--- | :--- |
 | `/` | WebLandingPage | Asosiy landing sahifa |
 | `/admin` | WebAdminLoginScreen | Admin login |
 | `/admin/dashboard` | WebAdminDashboard | Admin panel |
@@ -135,13 +142,13 @@ server {
 ## Mobile Ilovadan Web'ga yo'naltirish
 
 Ilova ichida admin/vendor panellar o'rniga brauzerda web sahifalar ochiladi:
+
 - Admin panel: `https://admin.topla.uz`
 - Vendor panel: `https://vendor.topla.uz`
 - Do'kon ochish: `https://vendor.topla.uz/register`
 
 ## Environment Variables
 
-Supabase va Firebase sozlamalari:
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anonymous key
+Firebase sozlamalari:
+
 - Firebase config - `firebase_options.dart` da

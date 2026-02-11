@@ -12,8 +12,7 @@
 -keep class com.google.firebase.** { *; }
 -keep class com.google.android.gms.** { *; }
 
-# Supabase
--keep class io.supabase.** { *; }
+# JSON / Network
 -keepattributes Signature
 -keepattributes *Annotation*
 

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/services/api_client.dart';
 import '../models/models.dart';
 
 /// To'lov holatlari
@@ -96,13 +96,13 @@ class PaymentService {
   // ignore: unused_field
   static const String _failureUrl = 'https://yourapp.com/payment/failure';
   static const String _callbackUrl =
-      'https://yourproject.supabase.co/functions/v1/payment-callback';
+      'https://api.topla.uz/api/v1/payments/callback';
 
   // ============================================================
-  // SUPABASE CLIENT
+  // API CLIENT
   // ============================================================
 
-  static SupabaseClient get _client => Supabase.instance.client;
+  static final ApiClient _api = ApiClient();
 
   // ============================================================
   // CARD BINDING (TOKENIZATION) - Karta saqlash
@@ -160,22 +160,15 @@ class PaymentService {
     required String expiryDate,
   }) async {
     try {
-      // Supabase'ga saqlash
-      final response = await _client
-          .from('saved_cards')
-          .insert({
-            'user_id': userId,
-            'binding_id': bindingId,
-            'masked_pan': maskedPan,
-            'card_type':
-                cardType.toLowerCase(), // uzcard, humo, visa, mastercard
-            'expiry_date': expiryDate,
-            'is_default': false,
-          })
-          .select()
-          .single();
+      // API ga saqlash
+      final response = await _api.post('/payments/cards', body: {
+        'bindingId': bindingId,
+        'maskedPan': maskedPan,
+        'cardType': cardType.toLowerCase(),
+        'expiryDate': expiryDate,
+      });
 
-      return SavedCardModel.fromJson(response);
+      return SavedCardModel.fromJson(response.dataMap);
     } catch (e) {
       debugPrint('Save card error: $e');
       return null;
@@ -185,7 +178,7 @@ class PaymentService {
   /// Saqlangan kartani o'chirish
   static Future<bool> deleteCard(String cardId) async {
     try {
-      await _client.from('saved_cards').delete().eq('id', cardId);
+      await _api.delete('/payments/cards/$cardId');
       return true;
     } catch (e) {
       debugPrint('Delete card error: $e');
@@ -196,15 +189,8 @@ class PaymentService {
   /// Kartani asosiy qilish
   static Future<bool> setDefaultCard(String userId, String cardId) async {
     try {
-      // Avval barcha kartalardan default'ni olib tashlash
-      await _client
-          .from('saved_cards')
-          .update({'is_default': false}).eq('user_id', userId);
-
-      // Tanlangan kartani default qilish
-      await _client
-          .from('saved_cards')
-          .update({'is_default': true}).eq('id', cardId);
+      // API orqali default kartani belgilash
+      await _api.put('/payments/cards/$cardId/default', body: {});
 
       return true;
     } catch (e) {
@@ -216,14 +202,11 @@ class PaymentService {
   /// Foydalanuvchining saqlangan kartalarini olish
   static Future<List<SavedCardModel>> getSavedCards(String userId) async {
     try {
-      final response = await _client
-          .from('saved_cards')
-          .select()
-          .eq('user_id', userId)
-          .order('is_default', ascending: false)
-          .order('created_at', ascending: false);
+      final response = await _api.get('/payments/cards');
 
-      return (response as List).map((e) => SavedCardModel.fromJson(e)).toList();
+      return (response.dataList)
+          .map((e) => SavedCardModel.fromJson(e))
+          .toList();
     } catch (e) {
       debugPrint('Get saved cards error: $e');
       return [];
@@ -609,9 +592,9 @@ class PaymentService {
     required String status,
   }) async {
     try {
-      await _client.from('transactions').insert({
-        'order_id': orderId,
-        'transaction_id': transactionId,
+      await _api.post('/payments/transactions', body: {
+        'orderId': orderId,
+        'transactionId': transactionId,
         'amount': amount,
         'currency': 'UZS',
         'status': status,
@@ -628,10 +611,9 @@ class PaymentService {
     String status,
   ) async {
     try {
-      await _client.from('transactions').update({
+      await _api.put('/payments/transactions/$transactionId', body: {
         'status': status,
-        'updated_at': DateTime.now().toIso8601String()
-      }).eq('transaction_id', transactionId);
+      });
     } catch (e) {
       debugPrint('Update transaction status error: $e');
     }

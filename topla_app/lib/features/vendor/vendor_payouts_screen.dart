@@ -134,7 +134,9 @@ class _VendorPayoutsScreenState extends State<VendorPayoutsScreen> {
       try {
         await VendorService.requestPayout(
           amount: result['amount'],
-          paymentMethod: result['method'],
+          bankName: (result['method'] as PaymentMethod).name,
+          accountNumber: '',
+          accountHolder: '',
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

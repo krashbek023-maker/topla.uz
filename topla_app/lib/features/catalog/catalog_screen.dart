@@ -169,6 +169,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   Widget _buildCategoryItem(CategoryModel category, int index) {
     final icon = _getCategoryIcon(category.icon);
+    final categories = context.read<ProductsProvider>().categories;
 
     return Column(
       children: [
@@ -219,7 +220,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
           ),
         ),
         // Divider
-        if (index < 28) // Don't show divider after last item
+        if (index < categories.length - 1) // Don't show divider after last item
           Padding(
             padding: const EdgeInsets.only(left: 56),
             child: Container(

@@ -655,6 +655,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           'color': AppColors.accent,
           'icon': Iconsax.box_tick,
         };
+      case OrderStatus.readyForPickup:
+        return {
+          'text': 'Tayyor',
+          'color': AppColors.accent,
+          'icon': Iconsax.box_tick,
+        };
+      case OrderStatus.courierAssigned:
+        return {
+          'text': 'Kuryer tayinlandi',
+          'color': AppColors.primary,
+          'icon': Iconsax.profile_tick,
+        };
+      case OrderStatus.courierPickedUp:
+        return {
+          'text': 'Kuryer oldi',
+          'color': AppColors.primary,
+          'icon': Iconsax.truck_fast,
+        };
       case OrderStatus.shipping:
         return {
           'text': 'Yo\'lda',

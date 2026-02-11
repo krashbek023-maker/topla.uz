@@ -71,7 +71,7 @@ flutter pub get
 
 ```bash
 # Build qilishda environment variable lar:
-flutter run --dart-define=SUPABASE_URL=your_url --dart-define=SUPABASE_ANON_KEY=your_key
+flutter run --dart-define=ENV=dev
 ```
 
 ### 4. Ilovani ishga tushiring
@@ -130,8 +130,8 @@ lib/
 | Kategoriya | Texnologiya |
 | :--- | :--- |
 | Framework | Flutter 3.6.1 |
-| Backend | Supabase |
-| Auth | Firebase Auth, Supabase Auth |
+| Backend | Node.js API (Fastify + Prisma) |
+| Auth | Firebase Auth, OTP (Telegram/SMS) |
 | Push Notifications | Firebase Messaging |
 | State | Provider + GetIt |
 | Navigation | go_router |
@@ -144,7 +144,6 @@ lib/
 
 ```yaml
 dependencies:
-  supabase_flutter: ^2.12.0
   firebase_core: ^4.4.0
   firebase_auth: ^6.1.4
   firebase_messaging: ^16.1.1
