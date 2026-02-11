@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 import { AlertCircle, ShoppingBag, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { adminLogin } from "@/lib/api/admin";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -18,38 +18,15 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) throw signInError;
-
-      if (data.user) {
-        // Check role - handle case where profile doesn't exist
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .maybeSingle();
-
-        // If no profile exists or role is not admin
-        if (!profile || profile.role !== "admin") {
-          await supabase.auth.signOut();
-          throw new Error("Siz admin emassiz yoki profilingiz topilmadi!");
-        }
-
-        router.push("/admin/dashboard");
-        router.refresh();
-      }
+      await adminLogin(email, password);
+      router.push("/admin/dashboard");
+      router.refresh();
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Kirishda xatolik yuz berdi");

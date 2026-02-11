@@ -1,101 +1,64 @@
-'use server'
-
-import { createClient } from '@/lib/supabase/server'
+import { fetchDeliveryZones, createDeliveryZone as apiCreateDeliveryZone, deleteDeliveryZone as apiDeleteDeliveryZone } from "@/lib/api/admin";
 
 export type DeliveryZone = {
-  id: string
-  name: string
-  region: string | null
-  districts: string[]
-  delivery_fee: number
-  min_order_amount: number
-  estimated_time: string | null
-  is_active: boolean
-  created_at: string
-}
+  id: string;
+  name: string;
+  region?: string | null;
+  districts?: string[];
+  delivery_fee: number;
+  min_order_amount: number;
+  estimated_time?: string | null;
+  is_active: boolean;
+  [key: string]: any;
+};
 
-export async function getDeliveryZones() {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('delivery_zones')
-    .select('*')
-    .order('name', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching delivery zones:', error)
-    return []
-  }
-
-  return data as DeliveryZone[]
-}
-
-export async function getDeliveryZoneStats() {
-  const supabase = await createClient()
-
-  const { data: all } = await supabase.from('delivery_zones').select('id, is_active')
-  
-  const zones = all || []
-  
-  return {
-    total: zones.length,
-    active: zones.filter(z => z.is_active).length,
-    inactive: zones.filter(z => !z.is_active).length
+export async function getDeliveryZones(): Promise<DeliveryZone[]> {
+  try {
+    const data = await fetchDeliveryZones();
+    return (data || []).map((z: any) => ({
+      id: z.id,
+      name: z.name,
+      region: z.region,
+      districts: z.districts,
+      delivery_fee: Number(z.deliveryFee || 0),
+      min_order_amount: Number(z.minOrderAmount || 0),
+      estimated_time: z.estimatedTime,
+      is_active: z.isActive,
+    }));
+  } catch {
+    return [];
   }
 }
 
-export async function createDeliveryZone(data: {
-  name: string
-  region?: string
-  districts?: string[]
-  delivery_fee?: number
-  min_order_amount?: number
-  estimated_time?: string
-}) {
-  const supabase = await createClient()
+export async function getDeliveryZoneStats(): Promise<{ total: number; active: number; inactive: number }> {
+  try {
+    const zones = await getDeliveryZones();
+    return {
+      total: zones.length,
+      active: zones.filter(z => z.is_active).length,
+      inactive: zones.filter(z => !z.is_active).length,
+    };
+  } catch {
+    return { total: 0, active: 0, inactive: 0 };
+  }
+}
 
-  const { error } = await supabase.from('delivery_zones').insert({
+export async function createDeliveryZone(data: Partial<DeliveryZone>): Promise<void> {
+  await apiCreateDeliveryZone({
     name: data.name,
     region: data.region,
-    districts: data.districts || [],
-    delivery_fee: data.delivery_fee || 0,
-    min_order_amount: data.min_order_amount || 0,
-    estimated_time: data.estimated_time,
-    is_active: true
-  })
-
-  if (error) throw error
+    districts: data.districts,
+    deliveryFee: data.delivery_fee,
+    minOrderAmount: data.min_order_amount,
+    estimatedTime: data.estimated_time,
+    isActive: data.is_active,
+  });
 }
 
-export async function updateDeliveryZone(id: string, data: Partial<DeliveryZone>) {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('delivery_zones')
-    .update({ ...data, updated_at: new Date().toISOString() })
-    .eq('id', id)
-
-  if (error) throw error
+export async function toggleDeliveryZoneStatus(id: string, _isActive: boolean): Promise<void> {
+  await apiDeleteDeliveryZone(id);
 }
 
-export async function toggleDeliveryZoneStatus(id: string, isActive: boolean) {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('delivery_zones')
-    .update({ is_active: isActive, updated_at: new Date().toISOString() })
-    .eq('id', id)
-
-  if (error) throw error
-}
-
-export async function deleteDeliveryZone(id: string) {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('delivery_zones')
-    .delete()
-    .eq('id', id)
-
-  if (error) throw error
+export async function deleteDeliveryZone(id: string): Promise<void> {
+  await apiDeleteDeliveryZone(id);
 }

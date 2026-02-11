@@ -237,6 +237,16 @@ export default function ProductsPage() {
                         <Badge variant="secondary">Nofaol</Badge>
                       </div>
                     )}
+                    {(product as any).status === 'has_errors' && (
+                      <div className="absolute top-2 left-2">
+                        <Badge variant="destructive">Xatolik</Badge>
+                      </div>
+                    )}
+                    {(product as any).status === 'blocked' && (
+                      <div className="absolute top-2 left-2">
+                        <Badge variant="destructive">Bloklangan</Badge>
+                      </div>
+                    )}
                     {product.stock === 0 && (
                       <div className="absolute top-2 left-2">
                         <Badge variant="destructive">Tugagan</Badge>
@@ -263,6 +273,23 @@ export default function ProductsPage() {
                       <span>Ombor: {product.stock ?? 0} ta</span>
                       <span>{product.soldCount ?? 0} sotildi</span>
                     </div>
+                    {/* Quality Score */}
+                    {(product as any).qualityScore !== undefined && (
+                      <div className="mt-1.5">
+                        <div className="flex items-center justify-between text-xs mb-0.5">
+                          <span className="text-muted-foreground">Sifat balli</span>
+                          <span className={`font-medium ${(product as any).qualityScore >= 70 ? 'text-green-600' : (product as any).qualityScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {(product as any).qualityScore}/100
+                          </span>
+                        </div>
+                        <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${(product as any).qualityScore >= 70 ? 'bg-green-500' : (product as any).qualityScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                            style={{ width: `${(product as any).qualityScore}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

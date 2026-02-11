@@ -36,10 +36,9 @@ import {
   Moon,
   Sun,
   Menu,
-  Loader2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useAuth } from "@/hooks/useAuth";
+import { isAdminAuthenticated, removeAdminToken } from "@/lib/api/admin";
 
 
 const sidebarItems = [
@@ -63,30 +62,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { user, isLoading, logout } = useAuth();
-  const isAdmin = user?.role === "admin";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Auth guard
   useEffect(() => {
-    // Only redirect if fully loaded and not admin
-    if (!isLoading && !user) {
-      router.push("/admin/login");
+    if (!isAdminAuthenticated()) {
+      router.replace("/admin/login");
     }
-  }, [isLoading, user, router]);
+  }, [router]);
 
-  // Show loading only briefly
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user || !isAdmin) {
-    return null;
-  }
+  const handleLogout = () => {
+    removeAdminToken();
+    router.push("/admin/login");
+  };
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -196,14 +185,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <Avatar className="h-9 w-9">
                     <AvatarImage src="" />
                     <AvatarFallback>
-                      {user?.firstName?.charAt(0) || user?.email?.charAt(0) || "A"}
+                      A
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>
-                  {user?.firstName || user?.email || "Admin"}
+                  Admin
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
@@ -213,7 +202,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Chiqish
                 </DropdownMenuItem>

@@ -1,111 +1,56 @@
-'use server'
-
-import { createClient } from '@/lib/supabase/server'
+import { fetchLogs } from "@/lib/api/admin";
 
 export type ActivityLog = {
-  id: string
-  user_id: string | null
-  action: string
-  entity_type: string | null
-  entity_id: string | null
-  details: Record<string, unknown> | null
-  ip_address: string | null
-  user_agent: string | null
-  created_at: string
-  user?: {
-    email: string
-    full_name: string | null
+  id: string;
+  action: string;
+  entity_type?: string;
+  entity_id?: string;
+  details?: any;
+  created_at: string;
+  [key: string]: any;
+};
+
+export async function getActivityLogs(limit = 100): Promise<ActivityLog[]> {
+  try {
+    const data = await fetchLogs({ limit });
+    return (data.logs || []).map((l: any) => ({
+      id: l.id,
+      action: l.action,
+      entity_type: l.entityType,
+      entity_id: l.entityId,
+      details: l.details,
+      created_at: l.createdAt,
+      user: l.user,
+      ip_address: l.ipAddress,
+    }));
+  } catch {
+    return [];
   }
 }
 
-export async function getActivityLogs(limit = 100) {
-  const supabase = await createClient()
-  
-  const { data, error } = await supabase
-    .from('activity_logs')
-    .select(`
-      *,
-      user:profiles!activity_logs_user_id_fkey(email:id, full_name)
-    `)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-
-  if (error) {
-    console.error('Error fetching activity logs:', error)
-    // Fallback without join if foreign key doesn't exist
-    const { data: logsOnly } = await supabase
-      .from('activity_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit)
-    return (logsOnly || []) as ActivityLog[]
-  }
-
-  return data as ActivityLog[]
-}
-
-export async function getLogStats() {
-  const supabase = await createClient()
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const { count: total } = await supabase.from('activity_logs').select('id', { count: 'exact', head: true })
-  const { count: today_count } = await supabase.from('activity_logs')
-    .select('id', { count: 'exact', head: true })
-    .gte('created_at', today.toISOString())
-
-  // Get action breakdown
-  const { data: actions } = await supabase
-    .from('activity_logs')
-    .select('action')
-    .limit(1000)
-
-  const actionCounts: Record<string, number> = {}
-  actions?.forEach(a => {
-    actionCounts[a.action] = (actionCounts[a.action] || 0) + 1
-  })
-
-  return {
-    total: total || 0,
-    today: today_count || 0,
-    topActions: Object.entries(actionCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([action, count]) => ({ action, count }))
+export async function getLogStats(): Promise<{ total: number; today: number; topActions: { action: string; count: number }[] }> {
+  try {
+    const data = await fetchLogs({ limit: 500 });
+    const logs = data.logs || [];
+    const today = new Date().toDateString();
+    const actionCounts: Record<string, number> = {};
+    logs.forEach((l: any) => {
+      actionCounts[l.action] = (actionCounts[l.action] || 0) + 1;
+    });
+    return {
+      total: data.pagination?.total || logs.length,
+      today: logs.filter((l: any) => new Date(l.createdAt).toDateString() === today).length,
+      topActions: Object.entries(actionCounts)
+        .map(([action, count]) => ({ action, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10),
+    };
+  } catch {
+    return { total: 0, today: 0, topActions: [] };
   }
 }
 
-export async function logActivity(data: {
-  action: string
-  entity_type?: string
-  entity_id?: string
-  details?: Record<string, unknown>
-}) {
-  const supabase = await createClient()
-  const { data: user } = await supabase.auth.getUser()
-
-  const { error } = await supabase.from('activity_logs').insert({
-    user_id: user.user?.id,
-    action: data.action,
-    entity_type: data.entity_type,
-    entity_id: data.entity_id,
-    details: data.details
-  })
-
-  if (error) throw error
-}
-
-export async function clearOldLogs(daysToKeep = 30) {
-  const supabase = await createClient()
-  
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - daysToKeep)
-
-  const { error } = await supabase
-    .from('activity_logs')
-    .delete()
-    .lt('created_at', cutoffDate.toISOString())
-
-  if (error) throw error
+export async function clearOldLogs(_days: number): Promise<void> {
+  // Managed by backend cron
+  return;
 }

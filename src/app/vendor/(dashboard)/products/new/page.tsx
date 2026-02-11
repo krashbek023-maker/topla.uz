@@ -42,7 +42,11 @@ export default function NewProductPage() {
 
   // Form state
   const [name, setName] = useState("");
+  const [nameUz, setNameUz] = useState("");
+  const [nameRu, setNameRu] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionUz, setDescriptionUz] = useState("");
+  const [descriptionRu, setDescriptionRu] = useState("");
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -51,6 +55,7 @@ export default function NewProductPage() {
   const [weight, setWeight] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [images, setImages] = useState<string[]>([]);
+  const [langTab, setLangTab] = useState<"uz" | "ru">("uz");
 
   // Fetch categories
   const { data: categories } = useQuery({
@@ -99,8 +104,12 @@ export default function NewProductPage() {
     if (!categoryId) { toast.error("Kategoriyani tanlang"); return; }
 
     createMutation.mutate({
-      name: name.trim(),
-      description: description.trim(),
+      name: nameUz.trim() || name.trim(),
+      nameUz: nameUz.trim() || name.trim(),
+      nameRu: nameRu.trim() || undefined,
+      description: descriptionUz.trim() || description.trim(),
+      descriptionUz: descriptionUz.trim() || description.trim(),
+      descriptionRu: descriptionRu.trim() || undefined,
       price: Number(price),
       compareAtPrice: originalPrice ? Number(originalPrice) : undefined,
       categoryId,
@@ -141,26 +150,74 @@ export default function NewProductPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Mahsulot nomi *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Masalan: Samsung Galaxy S24"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    />
+                  {/* Language tabs */}
+                  <div className="flex gap-2 border-b pb-2">
+                    <button
+                      type="button"
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${langTab === 'uz' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                      onClick={() => setLangTab('uz')}
+                    >
+                      🇺🇿 O&apos;zbekcha
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1 text-sm rounded-md transition-colors ${langTab === 'ru' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                      onClick={() => setLangTab('ru')}
+                    >
+                      🇷🇺 Русский
+                    </button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Tavsif</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Mahsulot haqida batafsil..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={5}
-                    />
-                  </div>
+
+                  {langTab === 'uz' ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="nameUz">Mahsulot nomi (UZ) *</Label>
+                        <Input
+                          id="nameUz"
+                          placeholder="Masalan: Samsung Galaxy S24"
+                          value={nameUz || name}
+                          onChange={(e) => { setNameUz(e.target.value); if (!name) setName(e.target.value); }}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="descriptionUz">Tavsif (UZ)</Label>
+                        <Textarea
+                          id="descriptionUz"
+                          placeholder="Mahsulot haqida batafsil (kamida 20 belgi)..."
+                          value={descriptionUz || description}
+                          onChange={(e) => { setDescriptionUz(e.target.value); if (!description) setDescription(e.target.value); }}
+                          rows={5}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Sifat balli uchun kamida 20 ta belgi kiriting
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="nameRu">Название товара (RU)</Label>
+                        <Input
+                          id="nameRu"
+                          placeholder="Например: Samsung Galaxy S24"
+                          value={nameRu}
+                          onChange={(e) => setNameRu(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="descriptionRu">Описание (RU)</Label>
+                        <Textarea
+                          id="descriptionRu"
+                          placeholder="Подробное описание товара..."
+                          value={descriptionRu}
+                          onChange={(e) => setDescriptionRu(e.target.value)}
+                          rows={5}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <div className="space-y-2">
                     <Label>Kategoriya *</Label>
                     <Select value={categoryId} onValueChange={setCategoryId}>
@@ -330,6 +387,28 @@ export default function NewProductPage() {
                     </p>
                   </div>
                   <Switch checked={isActive} onCheckedChange={setIsActive} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Auto-moderation info */}
+            <Card className="border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardContent className="pt-4">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Avtomatik moderatsiya</p>
+                    <p className="text-xs text-muted-foreground">
+                      Mahsulot avtomatik tekshiriladi. Sifat balli 0-100 gacha hisoblanadi.
+                      Yuqori ball = qidiruvda yuqoriroq o&apos;rin.
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5 mt-2">
+                      <li>✅ Nom UZ va RU (3+ belgi)</li>
+                      <li>✅ Tavsif UZ (20+ belgi)</li>
+                      <li>✅ Kamida 1 ta rasm</li>
+                      <li>✅ Narx va kategoriya</li>
+                    </ul>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -1,122 +1,74 @@
-"use server";
+import { fetchDashboardStats } from "@/lib/api/admin";
 
-import { createClient } from "@/lib/supabase/server";
+export type DashboardStats = {
+  revenue: number;
+  todayOrders: number;
+  pendingShops: number;
+  pendingProducts: number;
+};
 
-export async function getDashboardStats() {
-  const supabase = createClient();
-  
-  // 1. Total Revenue (sum of delivered orders total)
-  const { data: revenueData } = await supabase
-    .from('orders')
-    .select('total')
-    .eq('status', 'delivered');
-    
-  // Calculate total revenue
-  const totalRevenue = revenueData?.reduce((sum, order) => sum + Number(order.total), 0) || 0;
+export type RecentOrder = {
+  id: string;
+  order_number: string;
+  customer: string;
+  shop: string;
+  total: number;
+  status: string;
+  date: string;
+};
 
-  // 2. Today's Orders
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Start of today
-  const { count: todayOrdersCount } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .gte('created_at', today.toISOString());
+export type PendingShop = {
+  id: string;
+  name: string;
+  owner: string;
+  phone?: string;
+  date?: string;
+  email?: string;
+};
 
-  // 3. Pending Shops
-  const { count: pendingShopsCount } = await supabase
-    .from('shops')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'pending');
-
-  // 4. Pending Products (Moderation)
-  const { count: pendingProductsCount } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'pending');
-
-  return {
-    revenue: totalRevenue,
-    todayOrders: todayOrdersCount || 0,
-    pendingShops: pendingShopsCount || 0,
-    pendingProducts: pendingProductsCount || 0,
-  };
+export async function getDashboardStats(): Promise<DashboardStats> {
+  try {
+    const data = await fetchDashboardStats();
+    return {
+      revenue: data.totalRevenue || 0,
+      todayOrders: data.todayOrders || 0,
+      pendingShops: data.pendingShops || 0,
+      pendingProducts: data.pendingProducts || 0,
+    };
+  } catch {
+    return { revenue: 0, todayOrders: 0, pendingShops: 0, pendingProducts: 0 };
+  }
 }
 
-export async function getRecentOrders() {
-  const supabase = createClient();
-  
-  const { data, error } = await supabase
-    .from('orders')
-    .select(`
-      id,
-      order_number,
-      total,
-      status,
-      created_at,
-      profiles:user_id (
-        full_name
-      ),
-      shops:shop_id (
-        name
-      )
-    `)
-    .order('created_at', { ascending: false })
-    .limit(5);
-    
-  if (error) {
-    console.error('Error fetching recent orders:', error);
+export async function getRecentOrders(): Promise<RecentOrder[]> {
+  try {
+    const data = await fetchDashboardStats();
+    return (data.recentOrders || []).map((o: any) => ({
+      id: o.id,
+      order_number: o.orderNumber || `#${o.id.slice(0, 8)}`,
+      customer: o.customer?.fullName || o.customer?.phone || '-',
+      shop: o.shop?.name || '-',
+      total: Number(o.totalAmount || 0),
+      status: o.status,
+      date: new Date(o.createdAt).toLocaleDateString('uz-UZ'),
+    }));
+  } catch {
     return [];
   }
-  
-  // Map/Transform data to match UI expectations if needed
-  return data.map(order => {
-    const profile = Array.isArray(order.profiles) ? order.profiles[0] : order.profiles;
-    const shop = Array.isArray(order.shops) ? order.shops[0] : order.shops;
-    return {
-      id: order.id,
-      order_number: order.order_number,
-      customer: profile?.full_name || 'Noma\'lum mijoz',
-      shop: shop?.name || 'Noma\'lum do\'kon',
-      total: order.total,
-      status: order.status,
-      date: new Date(order.created_at).toLocaleString('uz-UZ'),
-    };
-  });
 }
 
-export async function getPendingShops() {
-  const supabase = createClient();
-  
-  const { data, error } = await supabase
-    .from('shops')
-    .select(`
-      id,
-      name,
-      phone,
-      created_at,
-      owner:owner_id (
-        full_name,
-        email
-      )
-    `)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    .limit(5);
-
-  if (error) {
-    console.error('Error fetching pending shops:', error);
+export async function getPendingShops(): Promise<PendingShop[]> {
+  try {
+    const data = await fetchDashboardStats();
+    return (data.pendingShopsList || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      owner: s.owner?.fullName || '-',
+      phone: s.owner?.phone,
+      email: s.email,
+      date: s.createdAt ? new Date(s.createdAt).toLocaleDateString('uz-UZ') : undefined,
+    }));
+  } catch {
     return [];
   }
-
-  return data.map(shop => {
-    const owner = Array.isArray(shop.owner) ? shop.owner[0] : shop.owner;
-    return {
-      id: shop.id,
-      name: shop.name,
-      owner: owner?.full_name || 'Noma\'lum',
-      phone: shop.phone,
-      date: new Date(shop.created_at).toLocaleDateString('uz-UZ'),
-      email: owner?.email
-    };
-  });
 }

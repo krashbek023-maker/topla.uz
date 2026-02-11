@@ -13,11 +13,10 @@ npm install
 
 ### 2. Environment sozlash
 
-`.env.local` faylini yarating:
+`.env.local` faylini yarating va API URL ni kiriting:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
 ```
 
 ### 3. Development server
@@ -89,10 +88,7 @@ topla-web/
 │   │       └── theme-provider.tsx      # Dark mode provider
 │   │
 │   └── lib/
-│       ├── utils.ts                    # Utility functions
-│       └── supabase/
-│           ├── client.ts               # Browser client
-│           └── server.ts               # Server client
+│       └── utils.ts                    # Utility functions
 │
 ├── package.json
 ├── tailwind.config.ts
@@ -146,8 +142,7 @@ topla-web/
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
 - **UI Components:** shadcn/ui (Radix UI)
-- **Database:** Supabase (PostgreSQL)
-- **Auth:** Supabase Auth
+- **Backend:** Fastify + Prisma (REST API)
 - **Icons:** Lucide Icons
 - **Charts:** Recharts (qo'shilishi kerak)
 - **Forms:** React Hook Form + Zod
@@ -173,25 +168,20 @@ Vercel settings dan:
 
 ### Keyingi qadamlar:
 
-1. **Supabase integration**
-   - Auth (login/register)
-   - Database queries
-   - Storage (images)
-
-2. **Qo'shimcha sahifalar**
+1. **Qo'shimcha sahifalar**
    - Admin: Users, Orders, Categories, Banners
    - Vendor: Orders, Analytics, Settings
 
-3. **Realtime**
+2. **Realtime**
    - New orders notification
    - Order status updates
 
-4. **Charts**
+3. **Charts**
    - Recharts integration
    - Sales charts
    - Analytics
 
-5. **File upload**
+4. **File upload**
    - Product images
    - Documents
 
