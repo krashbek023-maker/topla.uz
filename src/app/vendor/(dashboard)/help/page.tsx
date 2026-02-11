@@ -1,217 +1,342 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { 
-  HelpCircle, MessageCircle, Phone, Mail, Book, 
-  ChevronRight, Send, Loader2, ExternalLink
-} from 'lucide-react'
-import { useToast } from '@/components/ui/use-toast'
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import {
+  ChevronDown,
+  Search,
+  MessageCircle,
+  Phone,
+  Mail,
+  ExternalLink,
+  BookOpen,
+  Package,
+  CreditCard,
+  Truck,
+  Settings,
+  ShieldCheck,
+  HelpCircle,
+  Send,
+} from "lucide-react";
 
-const faqs = [
+const faqCategories = [
   {
-    question: "Mahsulot qanday qo'shiladi?",
-    answer: "Mahsulotlar sahifasiga o'ting, 'Yangi mahsulot' tugmasini bosing. Mahsulot nomini, narxini, tavsifini va rasmini kiriting. Keyin 'Saqlash' tugmasini bosing."
+    id: "general",
+    icon: HelpCircle,
+    label: "Umumiy",
+    questions: [
+      {
+        q: "TOPLA nima va u qanday ishlaydi?",
+        a: "TOPLA — bu O'zbekistondagi sotuvchilar uchun onlayn savdo platformasi. Siz do'koningizni ro'yxatdan o'tkazasiz, mahsulotlar qo'shasiz va mijozlarga yetkazib berasiz. Platform orqali buyurtmalarni boshqarish, to'lovlarni kuzatish va tahlillarni ko'rish mumkin.",
+      },
+      {
+        q: "Platformada sotish uchun komissiya qancha?",
+        a: "Komissiya kategoriyaga qarab 5% dan 10% gacha bo'ladi. Elektronika uchun 5%, oziq-ovqat uchun 8%, boshqa tovarlar uchun 10%. Komissiya faqat sotilgan buyurtmalardan olinadi — hech qanday oylik to'lov yo'q.",
+      },
+      {
+        q: "Do'konimni qanday ro'yxatdan o'tkazaman?",
+        a: "1) vendor.topla.uz/register sahifasiga o'ting. 2) Shaxsiy ma'lumotlaringizni kiriting. 3) Do'kon ma'lumotlarini to'ldiring. 4) Biznes hujjatlarini yuklang. 5) Tekshiruvdan o'tganingizdan so'ng darhol sotishni boshlaysiz.",
+      },
+    ],
   },
   {
-    question: "Buyurtmalarni qanday boshqaraman?",
-    answer: "Buyurtmalar sahifasida barcha buyurtmalarni ko'rishingiz mumkin. Har bir buyurtma uchun statusni o'zgartirish, tafsilotlarni ko'rish va mijoz bilan bog'lanish imkoniyati mavjud."
+    id: "products",
+    icon: Package,
+    label: "Mahsulotlar",
+    questions: [
+      {
+        q: "Mahsulot qanday qo'shiladi?",
+        a: "Boshqaruv panelida 'Mahsulotlar' bo'limiga o'ting, 'Yangi mahsulot' tugmasini bosing. Nomi, tavsifi, narxi, kategoriyasi va rasmlarini kiriting. 'Saqlash' tugmasini bossangiz, mahsulot darhol platformada paydo bo'ladi.",
+      },
+      {
+        q: "Nechta rasm yuklash mumkin?",
+        a: "Har bir mahsulotga 10 tagacha rasm yuklashingiz mumkin. Birinchi rasm asosiy rasm sifatida ko'rsatiladi. Rasmlar kamida 800x800 piksel bo'lishi tavsiya etiladi.",
+      },
+      {
+        q: "Mahsulotni vaqtincha o'chirish mumkinmi?",
+        a: "Ha, mahsulotlar ro'yxatida mahsulot yonidagi menyu tugmasini bosib, 'Faolsizlantirish' ni tanlang. Mahsulot o'chirilmaydi, lekin platforma'da ko'rinmay qoladi. Istalgan vaqtda qayta faollashtirish mumkin.",
+      },
+    ],
   },
   {
-    question: "To'lovlar qachon amalga oshiriladi?",
-    answer: "To'lovlar har hafta dushanba kunlari amalga oshiriladi. Minimal to'lov miqdori 100,000 so'm. Balans sahifasida to'lov tarixini ko'rishingiz mumkin."
+    id: "orders",
+    icon: Truck,
+    label: "Buyurtmalar",
+    questions: [
+      {
+        q: "Buyurtma holati qanday yangilanadi?",
+        a: "Buyurtmalar sahifasida har bir buyurtma yonida holat tugmalari mavjud. Buyurtma qabul qilinganida 'Tasdiqlash', tayyorlanganda 'Tayyorlanmoqda', jo'natilganda 'Jo'natildi' tugmasini bosing.",
+      },
+      {
+        q: "Buyurtmani bekor qilish mumkinmi?",
+        a: "Faqat 'kutilmoqda' holatidagi buyurtmalarni bekor qilish mumkin. Tasdiqlangan buyurtmalarni bekor qilish uchun mijozlar xizmatiga murojaat qiling.",
+      },
+      {
+        q: "FBS va DBS nima?",
+        a: "FBS (Fulfilled by Seller) — siz mahsulotni o'zingiz saqlaysiz va yetkazasiz. DBS (Delivery by Service) — mahsulotni siz saqlaysiz, lekin yetkazib berish xizmati orqali jo'natiladi. Sozlamalar sahifasida o'zingizga qulay modelni tanlang.",
+      },
+    ],
   },
   {
-    question: "Do'konimni qanday faollashtiraman?",
-    answer: "Hujjatlar sahifasiga o'tib, barcha kerakli hujjatlarni yuklang. Admin tomonidan tasdiqlangandan so'ng do'koningiz avtomatik faollashadi."
+    id: "payments",
+    icon: CreditCard,
+    label: "To'lovlar",
+    questions: [
+      {
+        q: "Pul qachon hisobimga tushadi?",
+        a: "Buyurtma yetkazib berilganidan so'ng, mablag' 1-3 ish kuni ichida sizning balans hisobingizga tushadi. Balans sahifasidan istalgan vaqtda pul yechib olish so'rovini yuborishingiz mumkin.",
+      },
+      {
+        q: "Minimal pul yechib olish summasi qancha?",
+        a: "Minimal summa 50,000 so'm. Mablag' 1-2 ish kuni ichida bank kartangizga o'tkaziladi.",
+      },
+      {
+        q: "Komissiyalar qanday hisoblanadi?",
+        a: "Komissiya faqat muvaffaqiyatli yetkazilgan buyurtmalardan olinadi. Bekor qilingan yoki qaytarilgan buyurtmalar uchun komissiya olinmaydi.",
+      },
+    ],
   },
   {
-    question: "Yetkazib berish zonalarini qanday sozlash mumkin?",
-    answer: "Sozlamalar sahifasida yetkazib berish zonalarini belgilashingiz mumkin. Har bir zona uchun alohida narx va yetkazib berish vaqtini sozlash imkoniyati mavjud."
+    id: "verification",
+    icon: ShieldCheck,
+    label: "Tekshiruv",
+    questions: [
+      {
+        q: "Qanday hujjatlarni yuklash kerak?",
+        a: "1) Pasport nusxasi (shaxsni tasdiqlash uchun), 2) INN guvohnomasi, 3) Litsenziya (agar kerak bo'lsa). Hujjatlar PDF yoki rasm formatida bo'lishi mumkin.",
+      },
+      {
+        q: "Tekshiruv qancha vaqt oladi?",
+        a: "Hujjatlar odatda 1-2 ish kuni ichida tekshiriladi. Natija haqida bildirishnoma olasiz. Agar rad etilsa, sababi ko'rsatiladi va qayta yuklash imkoniyati beriladi.",
+      },
+    ],
   },
   {
-    question: "Aksiya yoki chegirmalarni qanday qo'shaman?",
-    answer: "Mahsulotni tahrirlashda 'Chegirma narxi' maydoniga chegirmali narxni kiriting. Yoki admin bilan bog'lanib promo kod so'rang."
+    id: "settings",
+    icon: Settings,
+    label: "Sozlamalar",
+    questions: [
+      {
+        q: "Do'kon logotipini qanday o'zgartiraman?",
+        a: "Sozlamalar sahifasida 'Brending' bo'limida logotip ustiga bosing va yangi rasm yuklang. Logotip 200x200 pikseldan katta bo'lishi tavsiya etiladi.",
+      },
+      {
+        q: "Yetkazib berish narxini qanday sozlayman?",
+        a: "Sozlamalar sahifasida 'Yetkazib berish' bo'limida yetkazib berish narxini, minimal buyurtma summasini va bepul yetkazib berish chegarasini belgilang.",
+      },
+    ],
   },
-  {
-    question: "Reyting qanday hisoblanadi?",
-    answer: "Reyting mijozlarning baholari asosida hisoblanadi. Yaxshi xizmat ko'rsatish, tez yetkazish va sifatli mahsulotlar reytingni oshiradi."
-  },
-  {
-    question: "Mahsulot rasmlari uchun talablar qanday?",
-    answer: "Rasmlar kamida 800x800 piksel o'lchamda bo'lishi kerak. JPG, PNG formatlar qo'llab-quvvatlanadi. Fayl hajmi 5MB dan oshmasligi kerak."
-  }
-]
+];
 
-const contacts = [
+const contactChannels = [
+  {
+    icon: Send,
+    label: "Telegram",
+    value: "@topla_support",
+    href: "https://t.me/topla_support",
+    description: "Tezkor javob — kunlik 9:00 dan 22:00 gacha",
+    color: "bg-blue-500/10 text-blue-600",
+  },
   {
     icon: Phone,
-    title: "Telefon",
-    value: "+998 99 999 99 99",
-    description: "Dush-Juma 9:00 - 18:00",
-    action: "tel:+998999999999"
-  },
-  {
-    icon: MessageCircle,
-    title: "Telegram",
-    value: "@topla_support",
-    description: "24/7 qo'llab-quvvatlash",
-    action: "https://t.me/topla_support"
+    label: "Telefon",
+    value: "+998 90 123 45 67",
+    href: "tel:+998901234567",
+    description: "Dushanba — Shanba, 9:00 — 18:00",
+    color: "bg-green-500/10 text-green-600",
   },
   {
     icon: Mail,
-    title: "Email",
+    label: "Email",
     value: "support@topla.uz",
+    href: "mailto:support@topla.uz",
     description: "Javob 24 soat ichida",
-    action: "mailto:support@topla.uz"
-  }
-]
+    color: "bg-orange-500/10 text-orange-600",
+  },
+];
 
-export default function VendorHelpPage() {
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    subject: '',
-    message: ''
-  })
+export default function HelpPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [openCategory, setOpenCategory] = useState<string | null>("general");
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    if (!formData.subject || !formData.message) {
-      toast({ title: "Xatolik", description: "Barcha maydonlarni to'ldiring", variant: "destructive" })
-      return
-    }
-
-    setLoading(true)
-    // TODO: Send support request
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    toast({ title: "Yuborildi", description: "Xabaringiz qabul qilindi. Tez orada javob beramiz." })
-    setFormData({ subject: '', message: '' })
-    setLoading(false)
-  }
+  const filtered = searchQuery.trim()
+    ? faqCategories
+        .map((cat) => ({
+          ...cat,
+          questions: cat.questions.filter(
+            (q) =>
+              q.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              q.a.toLowerCase().includes(searchQuery.toLowerCase())
+          ),
+        }))
+        .filter((cat) => cat.questions.length > 0)
+    : faqCategories;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
+      {/* Header */}
       <div>
-        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Yordam</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">Savollaringizga javob toping yoki biz bilan bog'laning</p>
+        <h1 className="text-2xl font-bold">Yordam markazi</h1>
+        <p className="text-muted-foreground">
+          Savollar, qo&apos;llanmalar va bog&apos;lanish
+        </p>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {contacts.map((contact, i) => (
-          <a key={i} href={contact.action} target="_blank" rel="noopener noreferrer">
-            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <contact.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">{contact.title}</p>
-                  <p className="text-sm text-primary">{contact.value}</p>
-                  <p className="text-xs text-muted-foreground">{contact.description}</p>
-                </div>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              </CardContent>
-            </Card>
-          </a>
-        ))}
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Savol qidirish..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 rounded-full"
+        />
       </div>
+
+      {/* Contact Channels */}
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        {contactChannels.map((channel) => (
+          <motion.div key={channel.label} variants={staggerItem}>
+            <a href={channel.href} target="_blank" rel="noopener noreferrer">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-5">
+                  <div className={`inline-flex rounded-xl p-2.5 mb-3 ${channel.color}`}>
+                    <channel.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-semibold">{channel.label}</h3>
+                  <p className="text-sm font-medium text-primary">{channel.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{channel.description}</p>
+                </CardContent>
+              </Card>
+            </a>
+          </motion.div>
+        ))}
+      </motion.div>
 
       {/* FAQ */}
-      <Card>
-        <CardHeader className="p-3 sm:p-6">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <Book className="h-5 w-5" />
-            Ko'p so'raladigan savollar
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 sm:p-6 pt-0">
-          <Accordion type="single" collapsible className="w-full">
-            {faqs.map((faq, i) => (
-              <AccordionItem key={i} value={`item-${i}`}>
-                <AccordionTrigger className="text-left text-sm sm:text-base">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </CardContent>
-      </Card>
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Ko&apos;p beriladigan savollar</h2>
 
-      {/* Contact Form */}
-      <Card>
-        <CardHeader className="p-3 sm:p-6">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <MessageCircle className="h-5 w-5" />
-            Xabar yuborish
-          </CardTitle>
-          <CardDescription>Savolingiz yoki muammo bo'lsa, bizga yozing</CardDescription>
-        </CardHeader>
-        <CardContent className="p-3 sm:p-6 pt-0 space-y-4">
-          <div className="space-y-2">
-            <Label>Mavzu</Label>
-            <Input
-              placeholder="Masalan: To'lov bilan bog'liq savol"
-              value={formData.subject}
-              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Xabar</Label>
-            <Textarea
-              placeholder="Savolingizni batafsil yozing..."
-              rows={4}
-              value={formData.message}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, message: e.target.value })}
-            />
-          </div>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4 mr-2" />
-            )}
-            Yuborish
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Resources */}
-      <Card>
-        <CardHeader className="p-3 sm:p-6">
-          <CardTitle className="text-base sm:text-lg">Foydali manbalar</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 sm:p-6 pt-0">
-          <div className="space-y-2">
-            {[
-              { title: "Boshlang'ich qo'llanma", desc: "Platformadan foydalanishni o'rganish" },
-              { title: "Video darsliklar", desc: "Qadamba-qadam ko'rsatmalar" },
-              { title: "Siyosat va qoidalar", desc: "Platformada ishlash qoidalari" },
-              { title: "API dokumentatsiyasi", desc: "Texnik integratsiya uchun" }
-            ].map((item, i) => (
-              <button 
-                key={i} 
-                className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-muted transition-colors text-left"
-                onClick={() => toast({ title: "Tez orada", description: "Bu bo'lim tayyorlanmoqda" })}
-              >
-                <div>
-                  <p className="font-medium text-sm">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
+        {filtered.length > 0 ? (
+          <div className="space-y-4">
+            {filtered.map((cat) => (
+              <Card key={cat.id}>
+                <button
+                  className="w-full px-6 py-4 flex items-center justify-between"
+                  onClick={() =>
+                    setOpenCategory(openCategory === cat.id ? null : cat.id)
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <cat.icon className="h-5 w-5 text-primary" />
+                    <span className="font-semibold">{cat.label}</span>
+                    <Badge variant="secondary" className="rounded-full text-xs">
+                      {cat.questions.length}
+                    </Badge>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${
+                      openCategory === cat.id ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                <AnimatePresence>
+                  {openCategory === cat.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-6 pb-4 space-y-2">
+                        {cat.questions.map((faq, idx) => {
+                          const key = `${cat.id}-${idx}`;
+                          return (
+                            <div
+                              key={key}
+                              className="border rounded-xl overflow-hidden"
+                            >
+                              <button
+                                className="w-full px-4 py-3 flex items-center justify-between text-left"
+                                onClick={() =>
+                                  setOpenQuestion(
+                                    openQuestion === key ? null : key
+                                  )
+                                }
+                              >
+                                <span className="text-sm font-medium pr-4">{faq.q}</span>
+                                <ChevronDown
+                                  className={`h-3 w-3 shrink-0 transition-transform ${
+                                    openQuestion === key ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </button>
+                              <AnimatePresence>
+                                {openQuestion === key && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <p className="px-4 pb-3 text-sm text-muted-foreground">
+                                      {faq.a}
+                                    </p>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
             ))}
           </div>
+        ) : (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <HelpCircle className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
+              <h3 className="font-semibold mb-1">Natija topilmadi</h3>
+              <p className="text-sm text-muted-foreground">
+                Boshqa kalit so&apos;zlar bilan qidirib ko&apos;ring yoki bizga to&apos;g&apos;ridan-to&apos;g&apos;ri murojaat qiling
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Bottom CTA */}
+      <Card className="bg-primary/5 border-primary/20">
+        <CardContent className="p-6 text-center">
+          <MessageCircle className="h-10 w-10 mx-auto mb-3 text-primary" />
+          <h3 className="font-semibold mb-1">Javob topa olmadingizmi?</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Bizning qo&apos;llab-quvvatlash jamoamiz sizga yordam berishga tayyor
+          </p>
+          <a href="https://t.me/topla_support" target="_blank" rel="noopener noreferrer">
+            <Button className="rounded-full">
+              <Send className="mr-2 h-4 w-4" />
+              Telegram orqali yozish
+            </Button>
+          </a>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

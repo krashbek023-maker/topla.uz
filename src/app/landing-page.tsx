@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
+import { fadeInUp, staggerContainer, staggerItem } from "@/lib/animations";
 import {
   ShoppingBag,
   Store,
@@ -9,353 +13,539 @@ import {
   Truck,
   Users,
   ArrowRight,
-  CheckCircle2,
   Star,
   Package,
   Headphones,
+  BarChart3,
+  Zap,
+  CreditCard,
+  ChevronRight,
 } from "lucide-react";
+import { useState } from "react";
+
+const stats = [
+  { label: "Faol do'konlar", value: "500+", icon: Store },
+  { label: "Mahsulotlar", value: "50,000+", icon: Package },
+  { label: "Kunlik buyurtmalar", value: "2,000+", icon: ShoppingBag },
+  { label: "Foydalanuvchilar", value: "100,000+", icon: Users },
+];
+
+const features = [
+  {
+    icon: Store,
+    title: "Oson do'kon ochish",
+    description: "5 daqiqada onlayn do'koningizni oching. Hech qanday texnik bilim talab etilmaydi.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Analitika va statistika",
+    description: "Savdolaringizni real vaqtda kuzating. Batafsil grafiklar va hisobotlar.",
+  },
+  {
+    icon: Truck,
+    title: "Yetkazib berish",
+    description: "FBS va DBS modellarini tanlang. O'zingiz yetkazing yoki bizga ishoning.",
+  },
+  {
+    icon: Shield,
+    title: "Xavfsiz to'lovlar",
+    description: "Har bir tranzaksiya himoyalangan. Pullaringiz kafolatda.",
+  },
+  {
+    icon: BarChart3,
+    title: "Marketing vositalari",
+    description: "Mahsulotlaringizni reklama qiling. Aksiyalar va chegirmalar yarating.",
+  },
+  {
+    icon: Headphones,
+    title: "24/7 qo'llab-quvvatlash",
+    description: "Professional yordam jamoasi doimo siz bilan. Telegram, telefon, chat.",
+  },
+];
+
+const steps = [
+  {
+    number: "01",
+    title: "Ro'yxatdan o'ting",
+    description: "Shaxsiy ma'lumotlaringiz va do'kon haqida ma'lumot kiriting.",
+    icon: Users,
+  },
+  {
+    number: "02",
+    title: "Mahsulotlarni yuklang",
+    description: "Mahsulotlaringizni qo'shing, narxlarni belgilang, rasmlarni yuklang.",
+    icon: Package,
+  },
+  {
+    number: "03",
+    title: "Sotishni boshlang",
+    description: "Buyurtmalarni qabul qiling, yetkazing va daromad oling.",
+    icon: CreditCard,
+  },
+];
+
+const testimonials = [
+  {
+    name: "Aziz Karimov",
+    role: "Elektronika do'koni",
+    text: "TOPLA orqali oylik savdolarim 3 barobar oshdi. Platforma juda qulay.",
+    rating: 5,
+  },
+  {
+    name: "Nilufar Rahimova",
+    role: "Kiyim-kechak do'koni",
+    text: "Analitika tizimi juda ajoyib. Qaysi mahsulotlar yaxshi sotilayotganini aniq ko'raman.",
+    rating: 5,
+  },
+  {
+    name: "Bobur Aliyev",
+    role: "Oziq-ovqat do'koni",
+    text: "Yetkazib berish tizimi mukammal. Mijozlar doim mamnun.",
+    rating: 5,
+  },
+];
+
+const faqs = [
+  {
+    q: "Do'kon ochish uchun nima kerak?",
+    a: "Siz faqat pasport yoki guvohnoma nusxasi, do'kon haqida ma'lumot va INN raqamingiz kerak. Ro'yxatdan o'tish bepul.",
+  },
+  {
+    q: "Komissiya qancha?",
+    a: "Kategoriyaga qarab 5-15% komissiya olinadi. Hech qanday yashirin to'lovlar yo'q.",
+  },
+  {
+    q: "Pullarim qachon tushadi?",
+    a: "Buyurtma yetkazilganidan so'ng 1-3 ish kuni ichida hisobingizga o'tkaziladi.",
+  },
+  {
+    q: "Yetkazib berish qanday ishlaydi?",
+    a: "FBS (TOPLA yetkazadi) yoki DBS (o'zingiz yetkazasiz) modellaridan birini tanlashingiz mumkin.",
+  },
+];
 
 export default function HomePage() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
+        <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-primary flex items-center justify-center">
-              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+              <ShoppingBag className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-lg sm:text-xl font-bold">TOPLA.UZ</span>
+            <span className="text-xl font-bold">TOPLA.UZ</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="#features" className="text-sm font-medium hover:text-primary">
+            <a href="#features" className="text-sm font-medium hover:text-primary transition-colors">
               Imkoniyatlar
-            </Link>
-            <Link href="#how-it-works" className="text-sm font-medium hover:text-primary">
+            </a>
+            <a href="#how-it-works" className="text-sm font-medium hover:text-primary transition-colors">
               Qanday ishlaydi
-            </Link>
-            <Link href="#testimonials" className="text-sm font-medium hover:text-primary">
+            </a>
+            <a href="#testimonials" className="text-sm font-medium hover:text-primary transition-colors">
               Fikrlar
-            </Link>
-            <Link href="/contact" className="text-sm font-medium hover:text-primary">
-              Aloqa
-            </Link>
+            </a>
+            <a href="#faq" className="text-sm font-medium hover:text-primary transition-colors">
+              FAQ
+            </a>
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button variant="ghost" size="sm" className="text-xs sm:text-sm px-2 sm:px-4" asChild>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild>
               <Link href="/vendor/login">Kirish</Link>
             </Button>
-            <Button size="sm" className="text-xs sm:text-sm px-2 sm:px-4" asChild>
-              <Link href="/vendor/register">Sotuvchi bo'lish</Link>
+            <Button size="sm" className="rounded-full px-6" asChild>
+              <Link href="/vendor/register">
+                Boshlash
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
             </Button>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="container py-12 sm:py-16 md:py-24 lg:py-32 px-4 sm:px-6">
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-          <div className="space-y-6 sm:space-y-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs sm:text-sm">
-              <Star className="h-3 w-3 sm:h-4 sm:w-4" />
-              O'zbekistonning #1 marketplace platformasi
-            </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
-              Biznesingizni
-              <span className="text-primary"> onlayn </span>
-              olamga olib chiqing
-            </h1>
-            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-lg">
-              TOPLA.UZ platformasida do'kon oching va millionlab mijozlarga mahsulotlaringizni
-              yetkazing. Bepul ro'yxatdan o'ting!
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <Button size="lg" className="gap-2 w-full sm:w-auto" asChild>
+      <section className="relative py-20 sm:py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent" />
+        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+
+        <motion.div
+          className="container relative px-4 sm:px-6"
+          initial="hidden"
+          animate="visible"
+          variants={staggerContainer}
+        >
+          <div className="max-w-3xl mx-auto text-center">
+            <motion.div variants={staggerItem}>
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+                <Zap className="h-4 w-4" />
+                O&apos;zbekistonning #1 marketplace platformasi
+              </span>
+            </motion.div>
+
+            <motion.h1
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6"
+              variants={staggerItem}
+            >
+              Onlayn savdoni{" "}
+              <span className="text-primary">TOPLA</span> bilan
+              <br />boshlang
+            </motion.h1>
+
+            <motion.p
+              className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto"
+              variants={staggerItem}
+            >
+              Minglab mijozlarga yeting, savdolaringizni oshiring va biznesingizni rivojlantiring. 
+              Bepul ro&apos;yxatdan o&apos;ting va bugunoq sotishni boshlang.
+            </motion.p>
+
+            <motion.div className="flex flex-col sm:flex-row items-center justify-center gap-4" variants={staggerItem}>
+              <Button size="lg" className="rounded-full px-8 text-base h-12" asChild>
                 <Link href="/vendor/register">
                   Bepul boshlash
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
-                <Link href="#how-it-works">Batafsil ma'lumot</Link>
+              <Button variant="outline" size="lg" className="rounded-full px-8 text-base h-12" asChild>
+                <Link href="#how-it-works">Qanday ishlaydi?</Link>
               </Button>
-            </div>
-            <div className="flex items-center justify-between sm:justify-start gap-4 sm:gap-8 pt-4">
-              <div className="text-center sm:text-left">
-                <div className="text-xl sm:text-2xl md:text-3xl font-bold">1,500+</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Faol do'konlar</div>
-              </div>
-              <div className="text-center sm:text-left">
-                <div className="text-xl sm:text-2xl md:text-3xl font-bold">50,000+</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Mahsulotlar</div>
-              </div>
-              <div className="text-center sm:text-left">
-                <div className="text-xl sm:text-2xl md:text-3xl font-bold">100,000+</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Mijozlar</div>
-              </div>
-            </div>
+            </motion.div>
           </div>
-          <div className="relative mt-8 lg:mt-0">
-            <div className="aspect-square max-w-sm mx-auto lg:max-w-none rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              <Store className="h-24 w-24 sm:h-32 sm:w-32 md:h-48 md:w-48 text-primary/40" />
-            </div>
-            <div className="absolute bottom-0 left-0 sm:-bottom-6 sm:-left-6 bg-card p-3 sm:p-4 rounded-xl shadow-lg border">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
-                </div>
-                <div>
-                  <div className="text-sm sm:text-base font-semibold">+156%</div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground">Oylik o'sish</div>
-                </div>
-              </div>
-            </div>
-            <div className="absolute top-0 right-0 sm:-top-6 sm:-right-6 bg-card p-3 sm:p-4 rounded-xl shadow-lg border">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                </div>
-                <div>
-                  <div className="text-sm sm:text-base font-semibold">24 soat</div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground">Yetkazib berish</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+
+          {/* Stats */}
+          <motion.div
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 max-w-4xl mx-auto"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            {stats.map((stat) => (
+              <motion.div
+                key={stat.label}
+                className="text-center p-4 rounded-2xl bg-card border"
+                variants={staggerItem}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              >
+                <stat.icon className="h-6 w-6 text-primary mx-auto mb-2" />
+                <div className="text-2xl sm:text-3xl font-bold">{stat.value}</div>
+                <div className="text-sm text-muted-foreground">{stat.label}</div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="container py-16 sm:py-20 md:py-24 border-t px-4 sm:px-6">
-        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">Nima uchun TOPLA.UZ?</h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Bizning platformamiz sotuvchilar uchun barcha zarur vositalarni taqdim etadi
-          </p>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
-          <Card className="border-2 hover:border-primary/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <Store className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Oson do'kon ochish</h3>
-              <p className="text-muted-foreground">
-                5 daqiqada do'koningizni oching. Hech qanday texnik bilim talab etilmaydi.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 hover:border-primary/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <Shield className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Xavfsiz to'lovlar</h3>
-              <p className="text-muted-foreground">
-                Payme, Click, Uzum orqali xavfsiz to'lovlarni qabul qiling.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 hover:border-primary/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <Truck className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Yetkazib berish</h3>
-              <p className="text-muted-foreground">
-                O'zbekiston bo'ylab tez yetkazib berish xizmati. Biz hamma narsani hal qilamiz.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 hover:border-primary/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <TrendingUp className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Analitika</h3>
-              <p className="text-muted-foreground">
-                Sotuvlar, mijozlar va trendlar bo'yicha batafsil statistika.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 hover:border-primary/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <Users className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Katta auditoriya</h3>
-              <p className="text-muted-foreground">
-                100,000+ faol foydalanuvchilar. Reklama va marketingsiz mijozlar.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-2 hover:border-primary/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <Headphones className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">24/7 Qo'llab-quvvatlash</h3>
-              <p className="text-muted-foreground">
-                Har qanday savolingizga tezkor javob. Telegram va telefon orqali.
-              </p>
-            </CardContent>
-          </Card>
+      <section id="features" className="py-20 bg-muted/30">
+        <div className="container px-4 sm:px-6">
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Nima uchun TOPLA?</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+              Bizning platforma sizga muvaffaqiyatli onlayn savdo uchun barcha vositalarni taqdim etadi
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            {features.map((feature) => (
+              <motion.div key={feature.title} variants={staggerItem}>
+                <Card className="h-full border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                      <feature.icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                    <p className="text-muted-foreground">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
       {/* How it Works */}
-      <section id="how-it-works" className="bg-muted/50 py-16 sm:py-20 md:py-24">
+      <section id="how-it-works" className="py-20">
         <div className="container px-4 sm:px-6">
-          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">Qanday boshlash mumkin?</h2>
-            <p className="text-sm sm:text-base text-muted-foreground">3 oddiy qadamda do'koningizni oching</p>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-8 sm:gap-6 md:gap-8">
-            <div className="text-center">
-              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-4 sm:mb-6">
-                1
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Ro'yxatdan o'ting</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Telefon raqamingiz va shaxsiy ma'lumotlaringiz bilan ro'yxatdan o'ting
+          <motion.div
+            className="text-center mb-16"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">3 oddiy qadamda boshlang</h2>
+            <p className="text-muted-foreground max-w-xl mx-auto text-lg">
+              Do&apos;koningizni ochish hech qachon bu qadar oson bo&apos;lmagan
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.number}
+                className="relative text-center"
+                variants={staggerItem}
+              >
+                {index < steps.length - 1 && (
+                  <div className="hidden md:block absolute top-12 left-[60%] w-[80%] border-t-2 border-dashed border-primary/20" />
+                )}
+                <div className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-primary/10 mb-6 relative">
+                  <step.icon className="h-10 w-10 text-primary" />
+                  <span className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                    {step.number}
+                  </span>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
+                <p className="text-muted-foreground">{step.description}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Commission Calculator */}
+      <section className="py-20 bg-muted/30">
+        <div className="container px-4 sm:px-6">
+          <motion.div
+            className="max-w-4xl mx-auto"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+          >
+            <div className="text-center mb-12">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4">Qancha topasiz?</h2>
+              <p className="text-muted-foreground text-lg">
+                Oddiy hisob-kitob — siz qancha sotasiz, biz qancha foiz olamiz
               </p>
             </div>
-            <div className="text-center">
-              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-4 sm:mb-6">
-                2
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Do'kon oching</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Do'kon nomini, logosini va tavsifini kiriting. Hujjatlarni yuklang
-              </p>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-6 text-center">
+                  <div className="text-4xl font-bold text-primary mb-2">5%</div>
+                  <div className="text-lg font-semibold mb-1">Oziq-ovqat</div>
+                  <div className="text-sm text-muted-foreground">Eng past komissiya</div>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-primary shadow-lg">
+                <CardContent className="p-6 text-center">
+                  <div className="text-4xl font-bold text-primary mb-2">8%</div>
+                  <div className="text-lg font-semibold mb-1">Elektronika</div>
+                  <div className="text-sm text-muted-foreground">Eng mashhur kategoriya</div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-6 text-center">
+                  <div className="text-4xl font-bold text-primary mb-2">10%</div>
+                  <div className="text-lg font-semibold mb-1">Kiyim-kechak</div>
+                  <div className="text-sm text-muted-foreground">Yuqori margin</div>
+                </CardContent>
+              </Card>
             </div>
-            <div className="text-center">
-              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl sm:text-2xl font-bold mx-auto mb-4 sm:mb-6">
-                3
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Sotishni boshlang</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Mahsulotlaringizni qo'shing va buyurtmalarni qabul qilishni boshlang
-              </p>
-            </div>
-          </div>
-          <div className="text-center mt-8 sm:mt-12">
-            <Button size="lg" className="w-full sm:w-auto" asChild>
-              <Link href="/vendor/register">Hoziroq boshlash</Link>
-            </Button>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="container py-16 sm:py-20 md:py-24 px-4 sm:px-6">
-        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">Sotuvchilarimiz fikrlari</h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Minglab sotuvchilar bizga ishonadi
-          </p>
-        </div>
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
-          {[
-            {
-              name: "Aziz Karimov",
-              shop: "TechStore UZ",
-              text: "TOPLA.UZ orqali oylik daromadim 3 barobar oshdi. Ajoyib platforma!",
-            },
-            {
-              name: "Madina Rahimova",
-              shop: "Fashion House",
-              text: "Mijozlar bilan muloqot juda qulay. Yetkazib berish xizmati a'lo darajada.",
-            },
-            {
-              name: "Bobur Toshmatov",
-              shop: "Mebel Market",
-              text: "Boshqa platformalardan farqi - bu yerda haqiqiy sotuvlar bor. Tavsiya qilaman!",
-            },
-          ].map((testimonial, i) => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <div className="flex gap-1 mb-4">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-muted-foreground mb-4">"{testimonial.text}"</p>
-                <div>
-                  <div className="font-semibold">{testimonial.name}</div>
-                  <div className="text-sm text-muted-foreground">{testimonial.shop}</div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      <section id="testimonials" className="py-20">
+        <div className="container px-4 sm:px-6">
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Sotuvchilar nima deyishadi</h2>
+            <p className="text-muted-foreground text-lg">
+              500+ sotuvchilar allaqachon TOPLA bilan savdo qilmoqda
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            {testimonials.map((t) => (
+              <motion.div key={t.name} variants={staggerItem}>
+                <Card className="h-full border-0 shadow-sm">
+                  <CardContent className="p-6">
+                    <div className="flex gap-1 mb-4">
+                      {Array.from({ length: t.rating }).map((_, i) => (
+                        <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                      ))}
+                    </div>
+                    <p className="text-muted-foreground mb-4">&quot;{t.text}&quot;</p>
+                    <div>
+                      <div className="font-semibold">{t.name}</div>
+                      <div className="text-sm text-muted-foreground">{t.role}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-16 sm:py-20 md:py-24">
-        <div className="container text-center px-4 sm:px-6">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4">
-            Biznesingizni bugun boshlang!
-          </h2>
-          <p className="text-sm sm:text-base text-primary-foreground/80 max-w-2xl mx-auto mb-6 sm:mb-8">
-            1,500+ sotuvchi allaqachon TOPLA.UZ da muvaffaqiyatli savdo qilmoqda.
-            Siz ham qo'shiling!
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="w-full sm:w-auto" asChild>
-              <Link href="/vendor/register">Bepul ro'yxatdan o'tish</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="w-full sm:w-auto bg-transparent border-white hover:bg-white/10" asChild>
-              <Link href="/contact">Biz bilan bog'lanish</Link>
-            </Button>
+      {/* FAQ */}
+      <section id="faq" className="py-20 bg-muted/30">
+        <div className="container px-4 sm:px-6">
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ko&apos;p so&apos;raladigan savollar</h2>
+          </motion.div>
+
+          <div className="max-w-2xl mx-auto space-y-3">
+            {faqs.map((faq, i) => (
+              <motion.div
+                key={i}
+                className="border rounded-xl bg-card overflow-hidden"
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <button
+                  className="w-full flex items-center justify-between p-4 text-left font-medium hover:bg-muted/50 transition-colors"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                >
+                  {faq.q}
+                  <ChevronRight
+                    className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
+                      openFaq === i ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+                {openFaq === i && (
+                  <motion.div
+                    className="px-4 pb-4 text-muted-foreground"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {faq.a}
+                  </motion.div>
+                )}
+              </motion.div>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-20">
+        <div className="container px-4 sm:px-6">
+          <motion.div
+            className="max-w-3xl mx-auto text-center bg-primary rounded-3xl p-10 sm:p-16 text-primary-foreground relative overflow-hidden"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+          >
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+            <div className="relative">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+                Bugunoq sotishni boshlang!
+              </h2>
+              <p className="text-primary-foreground/80 mb-8 text-lg max-w-xl mx-auto">
+                500+ sotuvchilar orasiga qo&apos;shiling va TOPLA platformasida biznesingizni o&apos;stiring.
+                Ro&apos;yxatdan o&apos;tish mutlaqo bepul.
+              </p>
+              <Button size="lg" variant="secondary" className="rounded-full px-8 text-base h-12" asChild>
+                <Link href="/vendor/register">
+                  Bepul ro&apos;yxatdan o&apos;tish
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-8 sm:py-12">
+      <footer className="border-t py-12">
         <div className="container px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
-            <div className="col-span-2 md:col-span-1">
-              <Link href="/" className="flex items-center gap-2 mb-4">
-                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-primary flex items-center justify-center">
-                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                  <ShoppingBag className="h-5 w-5 text-primary-foreground" />
                 </div>
-                <span className="text-lg sm:text-xl font-bold">TOPLA.UZ</span>
-              </Link>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                O'zbekistonning eng yirik online marketplace platformasi
+                <span className="text-lg font-bold">TOPLA.UZ</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                O&apos;zbekistonning eng yirik marketplace platformasi
               </p>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Sotuvchilar uchun</h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <li><Link href="/vendor/register" className="hover:text-primary">Ro'yxatdan o'tish</Link></li>
-                <li><Link href="/vendor/login" className="hover:text-primary">Kirish</Link></li>
-                <li><Link href="#" className="hover:text-primary">Yordam markazi</Link></li>
-              </ul>
+              <h4 className="font-semibold mb-3">Sotuvchilar uchun</h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <Link href="/vendor/register" className="block hover:text-primary transition-colors">
+                  Do&apos;kon ochish
+                </Link>
+                <Link href="/vendor/login" className="block hover:text-primary transition-colors">
+                  Kabinetga kirish
+                </Link>
+                <a href="#faq" className="block hover:text-primary transition-colors">
+                  FAQ
+                </a>
+              </div>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Kompaniya</h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-primary">Biz haqimizda</Link></li>
-                <li><Link href="/contact" className="hover:text-primary">Aloqa</Link></li>
-                <li><Link href="#" className="hover:text-primary">Blog</Link></li>
-              </ul>
+              <h4 className="font-semibold mb-3">Kompaniya</h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <a href="#" className="block hover:text-primary transition-colors">Biz haqimizda</a>
+                <a href="#" className="block hover:text-primary transition-colors">Aloqa</a>
+                <a href="#" className="block hover:text-primary transition-colors">Blog</a>
+              </div>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Aloqa</h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <li>📞 +998 90 123 45 67</li>
-                <li>📧 info@topla.uz</li>
-                <li>📍 Toshkent sh., Chilonzor t.</li>
-              </ul>
+              <h4 className="font-semibold mb-3">Aloqa</h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>info@topla.uz</p>
+                <p>+998 (90) 123-45-67</p>
+                <p>Toshkent, O&apos;zbekiston</p>
+              </div>
             </div>
           </div>
-          <div className="border-t mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-xs sm:text-sm text-muted-foreground">
-            © 2024-2026 TOPLA.UZ. Barcha huquqlar himoyalangan.
+          <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
+            © {new Date().getFullYear()} TOPLA.UZ. Barcha huquqlar himoyalangan.
           </div>
         </div>
       </footer>

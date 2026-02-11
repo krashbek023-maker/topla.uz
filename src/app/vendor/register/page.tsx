@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -14,72 +15,178 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ShoppingBag, Loader2, CheckCircle, ArrowRight, ArrowLeft, Upload, Store, User, FileText } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { motion, AnimatePresence } from "framer-motion";
+import { fadeInUp } from "@/lib/animations";
+import { authApi } from "@/lib/api/auth";
+import { setToken } from "@/lib/api/client";
+import {
+  ShoppingBag,
+  Loader2,
+  CheckCircle,
+  ArrowRight,
+  ArrowLeft,
+  Store,
+  User,
+  FileText,
+  AlertCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+
+const cities = [
+  "Toshkent",
+  "Samarqand",
+  "Buxoro",
+  "Namangan",
+  "Andijon",
+  "Farg'ona",
+  "Nukus",
+  "Qarshi",
+  "Jizzax",
+  "Navoiy",
+  "Urganch",
+  "Termiz",
+  "Guliston",
+];
+
+const categories = [
+  "Elektronika",
+  "Kiyim-kechak",
+  "Oziq-ovqat",
+  "Uy-ro'zg'or",
+  "Go'zallik",
+  "Bolalar uchun",
+  "Sport",
+  "Kitoblar",
+  "Avtomobil",
+  "Qurilish",
+];
+
+const businessTypes = [
+  { value: "individual", label: "Jismoniy shaxs" },
+  { value: "sole_proprietor", label: "Yakka tartibdagi tadbirkor (YaTT)" },
+  { value: "llc", label: "MChJ" },
+];
 
 export default function VendorRegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
   // Step 1: Personal Info
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  
+
   // Step 2: Shop Info
   const [shopName, setShopName] = useState("");
   const [shopDescription, setShopDescription] = useState("");
   const [category, setCategory] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
-  
-  // Step 3: Documents
+
+  // Step 3: Business Info
   const [businessType, setBusinessType] = useState("");
+  const [inn, setInn] = useState("");
+
+  const validateStep1 = () => {
+    if (!fullName.trim()) return "Ism-familiyangizni kiriting";
+    if (!phone.trim()) return "Telefon raqamingizni kiriting";
+    if (!email.trim()) return "Email manzilingizni kiriting";
+    if (!password || password.length < 6) return "Parol kamida 6 belgidan iborat bo'lishi kerak";
+    return null;
+  };
+
+  const validateStep2 = () => {
+    if (!shopName.trim()) return "Do'kon nomini kiriting";
+    if (!category) return "Kategoriyani tanlang";
+    if (!city) return "Shaharni tanlang";
+    return null;
+  };
 
   const handleNext = () => {
-    if (step < 3) setStep(step + 1);
+    setError(null);
+    if (step === 1) {
+      const err = validateStep1();
+      if (err) { setError(err); return; }
+    } else if (step === 2) {
+      const err = validateStep2();
+      if (err) { setError(err); return; }
+    }
+    setStep(step + 1);
   };
 
   const handleBack = () => {
+    setError(null);
     if (step > 1) setStep(step - 1);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // TODO: Implement actual registration
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      const response = await authApi.register({
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        password,
+        shopName: shopName.trim(),
+        shopDescription: shopDescription.trim(),
+        category,
+        city,
+        address: address.trim(),
+        businessType,
+        inn: inn.trim(),
+      });
+
+      if (response.token) {
+        setToken(response.token);
+      }
       setStep(4); // Success state
+    } catch (err: any) {
+      setError(err.message || "Ro'yxatdan o'tishda xatolik yuz berdi");
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   // Success State
   if (step === 4) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-10 pb-8">
-            <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Ariza qabul qilindi!</h2>
-            <p className="text-muted-foreground mb-6">
-              Arizangiz muvaffaqiyatli yuborildi. Adminlar tekshirib chiqqanidan so'ng sizga xabar beramiz. 
-              Bu odatda 1-2 ish kunini oladi.
-            </p>
-            <div className="space-y-3">
-              <Button asChild className="w-full">
-                <Link href="/vendor/login">Kabinetga o'tish</Link>
-              </Button>
-              <Button variant="outline" asChild className="w-full">
-                <Link href="/">Bosh sahifaga qaytish</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }}>
+          <Card className="w-full max-w-md text-center">
+            <CardContent className="pt-10 pb-8">
+              <motion.div
+                className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              >
+                <CheckCircle className="h-8 w-8 text-green-500" />
+              </motion.div>
+              <h2 className="text-2xl font-bold mb-2">Ariza qabul qilindi!</h2>
+              <p className="text-muted-foreground mb-6">
+                Arizangiz muvaffaqiyatli yuborildi. Adminlar tekshirib chiqqanidan so&apos;ng sizga xabar beramiz.
+                Bu odatda 1-2 ish kunini oladi.
+              </p>
+              <div className="space-y-3">
+                <Button asChild className="w-full rounded-full">
+                  <Link href="/vendor/login">Kabinetga o&apos;tish</Link>
+                </Button>
+                <Button variant="outline" asChild className="w-full rounded-full">
+                  <Link href="/">Bosh sahifaga qaytish</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     );
   }
@@ -88,260 +195,271 @@ export default function VendorRegisterPage() {
     <div className="min-h-screen bg-muted/50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <motion.div className="text-center mb-8" {...fadeInUp}>
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
               <ShoppingBag className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold">TOPLA.UZ</span>
           </Link>
-          <h1 className="text-2xl font-bold">Sotuvchi bo'lish</h1>
-          <p className="text-muted-foreground">Do'koningizni ro'yxatdan o'tkazing</p>
-        </div>
+          <h1 className="text-2xl font-bold">Sotuvchi bo&apos;lish</h1>
+          <p className="text-muted-foreground">Do&apos;koningizni ro&apos;yxatdan o&apos;tkazing</p>
+        </motion.div>
 
-        {/* Progress Steps */}
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-4">
-            {[
-              { num: 1, icon: User, label: "Shaxsiy" },
-              { num: 2, icon: Store, label: "Do'kon" },
-              { num: 3, icon: FileText, label: "Hujjatlar" },
-            ].map((s, i) => (
-              <div key={s.num} className="flex items-center">
+        {/* Stepper */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {[
+            { num: 1, label: "Shaxsiy", icon: User },
+            { num: 2, label: "Do'kon", icon: Store },
+            { num: 3, label: "Hujjatlar", icon: FileText },
+          ].map((s, i) => (
+            <div key={s.num} className="flex items-center">
+              <div className="flex flex-col items-center">
                 <div
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+                  className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
                     step >= s.num
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  <s.icon className="h-4 w-4" />
-                  <span className="text-sm font-medium hidden sm:inline">{s.label}</span>
-                  <span className="text-sm font-medium sm:hidden">{s.num}</span>
+                  {step > s.num ? (
+                    <CheckCircle className="h-5 w-5" />
+                  ) : (
+                    <s.icon className="h-5 w-5" />
+                  )}
                 </div>
-                {i < 2 && (
-                  <div
-                    className={`w-12 h-0.5 mx-2 ${
-                      step > s.num ? "bg-primary" : "bg-muted"
-                    }`}
-                  />
-                )}
+                <span className="text-xs mt-1 text-muted-foreground hidden sm:block">{s.label}</span>
               </div>
-            ))}
-          </div>
+              {i < 2 && (
+                <div className={`w-12 sm:w-20 h-0.5 mx-2 ${step > s.num ? "bg-primary" : "bg-muted"}`} />
+              )}
+            </div>
+          ))}
         </div>
 
-        {/* Form Card */}
+        {/* Form */}
         <Card>
           <CardHeader>
             <CardTitle>
               {step === 1 && "Shaxsiy ma'lumotlar"}
               {step === 2 && "Do'kon ma'lumotlari"}
-              {step === 3 && "Hujjatlar"}
+              {step === 3 && "Biznes ma'lumotlari"}
             </CardTitle>
             <CardDescription>
-              {step === 1 && "O'zingiz haqingizda ma'lumot kiriting"}
-              {step === 2 && "Do'koningiz haqida ma'lumot kiriting"}
-              {step === 3 && "Ro'yxatdan o'tish uchun kerakli hujjatlarni yuklang"}
+              {step === 1 && "Bog'lanish uchun ma'lumotlaringizni kiriting"}
+              {step === 2 && "Do'koningiz haqida batafsil ma'lumot"}
+              {step === 3 && "Yuridik ma'lumotlaringizni kiriting (ixtiyoriy)"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit}>
-              {/* Step 1: Personal Info */}
-              {step === 1 && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">To'liq ism</Label>
-                    <Input
-                      id="fullName"
-                      placeholder="Aziz Karimov"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefon raqam</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+998 90 123 45 67"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="email@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Parol</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="Kamida 8 ta belgi"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      minLength={8}
-                    />
-                  </div>
-                </div>
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
 
-              {/* Step 2: Shop Info */}
-              {step === 2 && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="shopName">Do'kon nomi</Label>
-                    <Input
-                      id="shopName"
-                      placeholder="TechStore"
-                      value={shopName}
-                      onChange={(e) => setShopName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="shopDescription">Do'kon haqida</Label>
-                    <textarea
-                      id="shopDescription"
-                      className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Do'koningiz haqida qisqacha ma'lumot..."
-                      value={shopDescription}
-                      onChange={(e) => setShopDescription(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Asosiy kategoriya</Label>
-                    <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Kategoriyani tanlang" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="electronics">Elektronika</SelectItem>
-                        <SelectItem value="clothing">Kiyim</SelectItem>
-                        <SelectItem value="home">Uy-ro'zg'or</SelectItem>
-                        <SelectItem value="beauty">Go'zallik</SelectItem>
-                        <SelectItem value="sport">Sport</SelectItem>
-                        <SelectItem value="food">Oziq-ovqat</SelectItem>
-                        <SelectItem value="kids">Bolalar</SelectItem>
-                        <SelectItem value="other">Boshqa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+              <AnimatePresence mode="wait">
+                {/* Step 1: Personal Info */}
+                {step === 1 && (
+                  <motion.div
+                    key="step1"
+                    className="space-y-4"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     <div className="space-y-2">
-                      <Label>Shahar</Label>
-                      <Select value={city} onValueChange={setCity}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Shahar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tashkent">Toshkent</SelectItem>
-                          <SelectItem value="samarkand">Samarqand</SelectItem>
-                          <SelectItem value="bukhara">Buxoro</SelectItem>
-                          <SelectItem value="namangan">Namangan</SelectItem>
-                          <SelectItem value="andijan">Andijon</SelectItem>
-                          <SelectItem value="fergana">Farg'ona</SelectItem>
-                          <SelectItem value="other">Boshqa</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="fullName">Ism-familiya *</Label>
+                      <Input
+                        id="fullName"
+                        placeholder="Abdullayev Jasur"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Telefon raqam *</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="+998 90 123 45 67"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="jasur@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Parol *</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Kamida 6 belgi"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Step 2: Shop Info */}
+                {step === 2 && (
+                  <motion.div
+                    key="step2"
+                    className="space-y-4"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="shopName">Do&apos;kon nomi *</Label>
+                      <Input
+                        id="shopName"
+                        placeholder="Masalan: TechStore"
+                        value={shopName}
+                        onChange={(e) => setShopName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="shopDescription">Tavsif</Label>
+                      <Textarea
+                        id="shopDescription"
+                        placeholder="Do'koningiz haqida qisqacha..."
+                        value={shopDescription}
+                        onChange={(e) => setShopDescription(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Kategoriya *</Label>
+                        <Select value={category} onValueChange={setCategory}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Tanlang" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Shahar *</Label>
+                        <Select value={city} onValueChange={setCity}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Tanlang" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {cities.map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Manzil</Label>
                       <Input
                         id="address"
-                        placeholder="Ko'cha, uy"
+                        placeholder="To'liq manzil"
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                       />
                     </div>
-                  </div>
-                </div>
-              )}
+                  </motion.div>
+                )}
 
-              {/* Step 3: Documents */}
-              {step === 3 && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Biznes turi</Label>
-                    <Select value={businessType} onValueChange={setBusinessType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Biznes turini tanlang" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="individual">Jismoniy shaxs</SelectItem>
-                        <SelectItem value="ip">Yakka tartibdagi tadbirkor (YaTT)</SelectItem>
-                        <SelectItem value="llc">Mas'uliyati cheklangan jamiyat (MChJ)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Passport / ID karta nusxasi</Label>
-                    <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                      <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        Faylni tanlash uchun bosing yoki shu yerga tashlang
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        PNG, JPG, PDF (max 5MB)
-                      </p>
-                    </div>
-                  </div>
-
-                  {businessType && businessType !== "individual" && (
+                {/* Step 3: Business Info */}
+                {step === 3 && (
+                  <motion.div
+                    key="step3"
+                    className="space-y-4"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     <div className="space-y-2">
-                      <Label>Guvohnoma nusxasi</Label>
-                      <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">
-                          YaTT yoki MChJ guvohnomasi
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          PNG, JPG, PDF (max 5MB)
-                        </p>
-                      </div>
+                      <Label>Biznes turi</Label>
+                      <Select value={businessType} onValueChange={setBusinessType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tanlang" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {businessTypes.map((bt) => (
+                            <SelectItem key={bt.value} value={bt.value}>{bt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label htmlFor="inn">INN (ixtiyoriy)</Label>
+                      <Input
+                        id="inn"
+                        placeholder="123456789"
+                        value={inn}
+                        onChange={(e) => setInn(e.target.value)}
+                      />
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-xl text-sm text-muted-foreground">
+                      <p className="font-medium text-foreground mb-2">Eslatma:</p>
+                      <ul className="space-y-1 list-disc list-inside">
+                        <li>Hujjatlarni keyinroq ham yuklashingiz mumkin</li>
+                        <li>Ariza administrator tomonidan tekshiriladi</li>
+                        <li>Tasdiqlash 1-2 ish kunini oladi</li>
+                      </ul>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <p className="text-sm text-muted-foreground">
-                      📋 Hujjatlaringiz xavfsiz saqlanadi va faqat tekshirish maqsadida ishlatiladi.
-                      Shaxsiy ma'lumotlaringiz uchinchi shaxslarga berilmaydi.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Navigation Buttons */}
+              {/* Actions */}
               <div className="flex justify-between mt-6">
                 {step > 1 ? (
-                  <Button type="button" variant="outline" onClick={handleBack}>
+                  <Button type="button" variant="outline" onClick={handleBack} className="rounded-full">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Orqaga
                   </Button>
                 ) : (
-                  <div />
+                  <Button type="button" variant="ghost" asChild className="rounded-full">
+                    <Link href="/vendor/login">Kirish</Link>
+                  </Button>
                 )}
-                
+
                 {step < 3 ? (
-                  <Button type="button" onClick={handleNext}>
+                  <Button type="button" onClick={handleNext} className="rounded-full">
                     Keyingi
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="submit" disabled={isLoading} className="rounded-full">
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -350,23 +468,21 @@ export default function VendorRegisterPage() {
                     ) : (
                       <>
                         Ariza yuborish
-                        <CheckCircle className="ml-2 h-4 w-4" />
+                        <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     )}
                   </Button>
                 )}
               </div>
             </form>
+
+            <div className="mt-6 text-center">
+              <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                ← Bosh sahifaga qaytish
+              </Link>
+            </div>
           </CardContent>
         </Card>
-
-        {/* Login Link */}
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Allaqachon ro'yxatdan o'tganmisiz?{" "}
-          <Link href="/vendor/login" className="text-primary hover:underline font-medium">
-            Kirish
-          </Link>
-        </p>
       </div>
     </div>
   );

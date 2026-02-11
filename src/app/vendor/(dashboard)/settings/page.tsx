@@ -1,342 +1,449 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { motion } from "framer-motion";
+import { fadeInUp } from "@/lib/animations";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { vendorApi } from "@/lib/api/vendor";
+import { uploadApi } from "@/lib/api/upload";
+import { toast } from "sonner";
+import {
+  Store,
+  User,
+  MapPin,
+  Phone,
+  Mail,
+  Clock,
+  Image as ImageIcon,
+  Loader2,
+  Save,
+  Upload,
+  Globe,
+  Instagram,
+  MessageCircle,
+} from "lucide-react";
+import Image from "next/image";
 
-export default function VendorSettingsPage() {
-  const [shopData, setShopData] = useState({
-    name: 'TechZone',
-    description: 'Eng yaxshi elektronika do\'koni. Original gadgetlar va qurilmalar.',
-    phone: '+998 90 123 45 67',
-    email: 'techzone@email.com',
-    address: 'Toshkent, Chilonzor tumani, 12-mavze',
-    workingHours: '09:00 - 21:00',
-    logo: null,
-  })
+export default function SettingsPage() {
+  const queryClient = useQueryClient();
+  const [isUploading, setIsUploading] = useState(false);
 
-  const [bankData, setBankData] = useState({
-    cardNumber: '8600 1234 5678 9012',
-    cardHolder: 'JASUR TOSHMATOV',
-    bankName: 'Kapitalbank',
-  })
+  // Shop form state
+  const [shopName, setShopName] = useState("");
+  const [shopDescription, setShopDescription] = useState("");
+  const [shopPhone, setShopPhone] = useState("");
+  const [shopEmail, setShopEmail] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+  const [shopCity, setShopCity] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [fulfillmentType, setFulfillmentType] = useState("DBS");
+  const [instagram, setInstagram] = useState("");
+  const [telegram, setTelegram] = useState("");
+  const [website, setWebsite] = useState("");
+  const [minOrder, setMinOrder] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState("");
+  const [freeDeliveryMin, setFreeDeliveryMin] = useState("");
 
-  const [notificationSettings, setNotificationSettings] = useState({
-    newOrder: true,
-    orderStatus: true,
-    payout: true,
-    promotion: false,
-  })
+  // Load shop data
+  const { data: shop, isLoading } = useQuery({
+    queryKey: ["vendor-shop"],
+    queryFn: vendorApi.getShop,
+  });
 
-  const handleSaveShop = () => {
-    console.log('Saving shop data:', shopData)
-  }
+  useEffect(() => {
+    if (shop) {
+      setShopName(shop.name || "");
+      setShopDescription(shop.description || "");
+      setShopPhone(shop.phone || "");
+      setShopEmail(shop.email || "");
+      setShopAddress(shop.address || "");
+      setShopCity(shop.city || "");
+      setLogoUrl(shop.logoUrl || "");
+      setBannerUrl(shop.bannerUrl || "");
+      setFulfillmentType(shop.fulfillmentType || "DBS");
+      setInstagram(shop.instagram || "");
+      setTelegram(shop.telegram || "");
+      setWebsite(shop.website || "");
+      setMinOrder(shop.minOrderAmount?.toString() || "");
+      setDeliveryFee(shop.deliveryFee?.toString() || "");
+      setFreeDeliveryMin(shop.freeDeliveryFrom?.toString() || "");
+    }
+  }, [shop]);
 
-  const handleSaveBank = () => {
-    console.log('Saving bank data:', bankData)
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => vendorApi.updateShop(data),
+    onSuccess: () => {
+      toast.success("Sozlamalar saqlandi");
+      queryClient.invalidateQueries({ queryKey: ["vendor-shop"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Xatolik yuz berdi");
+    },
+  });
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const result = await uploadApi.uploadImage(file);
+      setLogoUrl(result.url);
+      toast.success("Logo yuklandi");
+    } catch (err: any) {
+      toast.error(err.message || "Yuklashda xatolik");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const result = await uploadApi.uploadImage(file);
+      setBannerUrl(result.url);
+      toast.success("Banner yuklandi");
+    } catch (err: any) {
+      toast.error(err.message || "Yuklashda xatolik");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate({
+      name: shopName.trim(),
+      description: shopDescription.trim(),
+      phone: shopPhone.trim(),
+      email: shopEmail.trim(),
+      address: shopAddress.trim(),
+      city: shopCity,
+      logoUrl,
+      bannerUrl,
+      fulfillmentType,
+      instagram: instagram.trim(),
+      telegram: telegram.trim(),
+      website: website.trim(),
+      minOrderAmount: minOrder ? Number(minOrder) : undefined,
+      deliveryFee: deliveryFee ? Number(deliveryFee) : undefined,
+      freeDeliveryFrom: freeDeliveryMin ? Number(freeDeliveryMin) : undefined,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Sozlamalar</h1>
-        <p className="text-muted-foreground">
-          Do'kon va hisob sozlamalarini boshqaring
-        </p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Sozlamalar</h1>
+          <p className="text-muted-foreground">Do&apos;kon ma&apos;lumotlarini boshqarish</p>
+        </div>
+        <Button
+          className="rounded-full"
+          onClick={handleSave}
+          disabled={updateMutation.isPending}
+        >
+          {updateMutation.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saqlanmoqda...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Saqlash
+            </>
+          )}
+        </Button>
       </div>
 
-      <Tabs defaultValue="shop" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="shop">Do'kon ma'lumotlari</TabsTrigger>
-          <TabsTrigger value="bank">Bank ma'lumotlari</TabsTrigger>
-          <TabsTrigger value="notifications">Bildirishnomalar</TabsTrigger>
-          <TabsTrigger value="security">Xavfsizlik</TabsTrigger>
-        </TabsList>
-
-        {/* Shop Settings */}
-        <TabsContent value="shop">
-          <Card>
-            <CardHeader>
-              <CardTitle>Do'kon ma'lumotlari</CardTitle>
-              <CardDescription>Do'kon profili va aloqa ma'lumotlari</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-start gap-6">
-                <div className="w-24 h-24 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <span className="text-4xl">🏪</span>
+      {/* Branding */}
+      <motion.div {...fadeInUp}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-primary" />
+              Branding
+            </CardTitle>
+            <CardDescription>Logo va banner rasmlarini yuklang</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid sm:grid-cols-2 gap-6">
+              {/* Logo */}
+              <div>
+                <Label className="mb-2 block">Logo</Label>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={logoUrl} />
+                    <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                      {shopName?.charAt(0) || "S"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <label>
+                    <Button variant="outline" className="rounded-full" asChild>
+                      <span>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Yuklash
+                      </span>
+                    </Button>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  </label>
                 </div>
-                <div className="space-y-2">
-                  <Label>Do'kon logosi</Label>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">Rasm yuklash</Button>
-                    <Button variant="ghost" size="sm">O'chirish</Button>
+              </div>
+
+              {/* Banner */}
+              <div>
+                <Label className="mb-2 block">Banner</Label>
+                <label className="block cursor-pointer">
+                  <div className="aspect-[3/1] rounded-xl border-2 border-dashed border-muted-foreground/30 overflow-hidden hover:border-primary/50 transition-colors relative">
+                    {bannerUrl ? (
+                      <Image src={bannerUrl} alt="Banner" fill className="object-cover" />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <Upload className="h-6 w-6 mr-2" />
+                        <span className="text-sm">Banner yuklash</span>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Tavsiya: 200x200 px, PNG yoki JPG
-                  </p>
-                </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
+                </label>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Do'kon nomi</Label>
-                  <Input
-                    value={shopData.name}
-                    onChange={(e) => setShopData({ ...shopData, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Telefon raqam</Label>
-                  <Input
-                    value={shopData.phone}
-                    onChange={(e) => setShopData({ ...shopData, phone: e.target.value })}
-                  />
-                </div>
-              </div>
+      {/* Shop Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Store className="h-5 w-5 text-primary" />
+            Do&apos;kon ma&apos;lumotlari
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="shopName">Do&apos;kon nomi</Label>
+              <Input
+                id="shopName"
+                value={shopName}
+                onChange={(e) => setShopName(e.target.value)}
+                placeholder="Do'kon nomi"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Shahar</Label>
+              <Select value={shopCity} onValueChange={setShopCity}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tanlang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Toshkent", "Samarqand", "Buxoro", "Namangan", "Andijon", "Farg'ona", "Nukus", "Qarshi"].map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="shopDescription">Tavsif</Label>
+            <Textarea
+              id="shopDescription"
+              value={shopDescription}
+              onChange={(e) => setShopDescription(e.target.value)}
+              placeholder="Do'kon haqida..."
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="shopAddress">Manzil</Label>
+            <Input
+              id="shopAddress"
+              value={shopAddress}
+              onChange={(e) => setShopAddress(e.target.value)}
+              placeholder="To'liq manzil"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-              <div className="space-y-2">
-                <Label>Tavsif</Label>
-                <textarea
-                  className="w-full min-h-[100px] px-3 py-2 border rounded-md"
-                  value={shopData.description}
-                  onChange={(e) => setShopData({ ...shopData, description: e.target.value })}
-                />
-              </div>
+      {/* Contact */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Phone className="h-5 w-5 text-primary" />
+            Aloqa ma&apos;lumotlari
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="shopPhone">Telefon</Label>
+              <Input
+                id="shopPhone"
+                value={shopPhone}
+                onChange={(e) => setShopPhone(e.target.value)}
+                placeholder="+998 90 123 45 67"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="shopEmail">Email</Label>
+              <Input
+                id="shopEmail"
+                type="email"
+                value={shopEmail}
+                onChange={(e) => setShopEmail(e.target.value)}
+                placeholder="shop@topla.uz"
+              />
+            </div>
+          </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={shopData.email}
-                    onChange={(e) => setShopData({ ...shopData, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ish vaqti</Label>
-                  <Input
-                    value={shopData.workingHours}
-                    onChange={(e) => setShopData({ ...shopData, workingHours: e.target.value })}
-                    placeholder="09:00 - 21:00"
-                  />
-                </div>
-              </div>
+          <Separator />
 
-              <div className="space-y-2">
-                <Label>Manzil</Label>
-                <Input
-                  value={shopData.address}
-                  onChange={(e) => setShopData({ ...shopData, address: e.target.value })}
-                />
-              </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="instagram" className="flex items-center gap-1">
+                <Instagram className="h-3 w-3" /> Instagram
+              </Label>
+              <Input
+                id="instagram"
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
+                placeholder="@username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="telegram" className="flex items-center gap-1">
+                <MessageCircle className="h-3 w-3" /> Telegram
+              </Label>
+              <Input
+                id="telegram"
+                value={telegram}
+                onChange={(e) => setTelegram(e.target.value)}
+                placeholder="@username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="website" className="flex items-center gap-1">
+                <Globe className="h-3 w-3" /> Veb-sayt
+              </Label>
+              <Input
+                id="website"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="https://"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-              <Button onClick={handleSaveShop}>Saqlash</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {/* Delivery Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" />
+            Yetkazib berish sozlamalari
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Yetkazib berish modeli</Label>
+            <Select value={fulfillmentType} onValueChange={setFulfillmentType}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="FBS">
+                  FBS — TOPLA yetkazadi
+                </SelectItem>
+                <SelectItem value="DBS">
+                  DBS — O&apos;zingiz yetkazasiz
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              FBS: Mahsulotlarni omborimizga yuboring, biz yetkazamiz. DBS: O&apos;zingiz yetkazasiz.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="minOrder">Min. buyurtma (so&apos;m)</Label>
+              <Input
+                id="minOrder"
+                type="number"
+                value={minOrder}
+                onChange={(e) => setMinOrder(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deliveryFee">Yetkazish narxi (so&apos;m)</Label>
+              <Input
+                id="deliveryFee"
+                type="number"
+                value={deliveryFee}
+                onChange={(e) => setDeliveryFee(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="freeDeliveryMin">Bepul yetkazish (so&apos;m dan)</Label>
+              <Input
+                id="freeDeliveryMin"
+                type="number"
+                value={freeDeliveryMin}
+                onChange={(e) => setFreeDeliveryMin(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Bank Settings */}
-        <TabsContent value="bank">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bank ma'lumotlari</CardTitle>
-              <CardDescription>Pul yechish uchun karta ma'lumotlari</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="p-6 bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl text-white max-w-md">
-                <div className="flex justify-between items-start mb-8">
-                  <span className="text-lg font-semibold">{bankData.bankName}</span>
-                  <span className="text-2xl">💳</span>
-                </div>
-                <div className="text-xl tracking-wider mb-4">
-                  {bankData.cardNumber}
-                </div>
-                <div className="text-sm opacity-80">
-                  {bankData.cardHolder}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Karta raqami</Label>
-                  <Input
-                    value={bankData.cardNumber}
-                    onChange={(e) => setBankData({ ...bankData, cardNumber: e.target.value })}
-                    placeholder="8600 **** **** ****"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Karta egasi</Label>
-                  <Input
-                    value={bankData.cardHolder}
-                    onChange={(e) => setBankData({ ...bankData, cardHolder: e.target.value })}
-                    placeholder="ISM FAMILIYA"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Bank nomi</Label>
-                <Input
-                  value={bankData.bankName}
-                  onChange={(e) => setBankData({ ...bankData, bankName: e.target.value })}
-                />
-              </div>
-
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  ⚠️ Bank ma'lumotlarini o'zgartirsangiz, yangi karta tasdiqlash jarayonidan o'tadi (1-2 ish kuni)
-                </p>
-              </div>
-
-              <Button onClick={handleSaveBank}>Saqlash</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Notification Settings */}
-        <TabsContent value="notifications">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bildirishnoma sozlamalari</CardTitle>
-              <CardDescription>Qanday xabarlarni olishni tanlang</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <div className="font-medium">Yangi buyurtma</div>
-                  <div className="text-sm text-muted-foreground">
-                    Yangi buyurtma kelganda xabar
-                  </div>
-                </div>
-                <Button
-                  variant={notificationSettings.newOrder ? 'default' : 'outline'}
-                  onClick={() => setNotificationSettings({
-                    ...notificationSettings,
-                    newOrder: !notificationSettings.newOrder
-                  })}
-                >
-                  {notificationSettings.newOrder ? '✓ Yoqilgan' : 'O\'chirilgan'}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <div className="font-medium">Buyurtma statusi</div>
-                  <div className="text-sm text-muted-foreground">
-                    Buyurtma statusi o'zgarganda xabar
-                  </div>
-                </div>
-                <Button
-                  variant={notificationSettings.orderStatus ? 'default' : 'outline'}
-                  onClick={() => setNotificationSettings({
-                    ...notificationSettings,
-                    orderStatus: !notificationSettings.orderStatus
-                  })}
-                >
-                  {notificationSettings.orderStatus ? '✓ Yoqilgan' : 'O\'chirilgan'}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <div className="font-medium">To'lov xabari</div>
-                  <div className="text-sm text-muted-foreground">
-                    Pul yechish tasdiqlanganda xabar
-                  </div>
-                </div>
-                <Button
-                  variant={notificationSettings.payout ? 'default' : 'outline'}
-                  onClick={() => setNotificationSettings({
-                    ...notificationSettings,
-                    payout: !notificationSettings.payout
-                  })}
-                >
-                  {notificationSettings.payout ? '✓ Yoqilgan' : 'O\'chirilgan'}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <div className="font-medium">Aksiya va yangiliklar</div>
-                  <div className="text-sm text-muted-foreground">
-                    Platforma aksiyalari haqida xabar
-                  </div>
-                </div>
-                <Button
-                  variant={notificationSettings.promotion ? 'default' : 'outline'}
-                  onClick={() => setNotificationSettings({
-                    ...notificationSettings,
-                    promotion: !notificationSettings.promotion
-                  })}
-                >
-                  {notificationSettings.promotion ? '✓ Yoqilgan' : 'O\'chirilgan'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Security Settings */}
-        <TabsContent value="security">
-          <Card>
-            <CardHeader>
-              <CardTitle>Xavfsizlik</CardTitle>
-              <CardDescription>Hisob xavfsizligi sozlamalari</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <div className="font-medium">Parolni o'zgartirish</div>
-                    <div className="text-sm text-muted-foreground">
-                      Oxirgi o'zgarish: 30 kun oldin
-                    </div>
-                  </div>
-                  <Button variant="outline">O'zgartirish</Button>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <div className="font-medium">Ikki bosqichli autentifikatsiya</div>
-                    <div className="text-sm text-muted-foreground">
-                      SMS orqali qo'shimcha himoya
-                    </div>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800">Yoqilgan</Badge>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <div className="font-medium">Aktiv sessiyalar</div>
-                    <div className="text-sm text-muted-foreground">
-                      3 ta qurilmada kirish mavjud
-                    </div>
-                  </div>
-                  <Button variant="outline">Boshqarish</Button>
-                </div>
-              </div>
-
-              <div className="border-t pt-6">
-                <h4 className="font-medium text-red-600 mb-4">Xavfli zona</h4>
-                <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
-                  <div>
-                    <div className="font-medium text-red-800">Do'konni o'chirish</div>
-                    <div className="text-sm text-red-600">
-                      Bu amalni qaytarib bo'lmaydi
-                    </div>
-                  </div>
-                  <Button variant="destructive">O'chirish</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Save Button (Mobile) */}
+      <div className="sm:hidden">
+        <Button
+          className="w-full rounded-full"
+          onClick={handleSave}
+          disabled={updateMutation.isPending}
+        >
+          {updateMutation.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saqlanmoqda...
+            </>
+          ) : (
+            "Saqlash"
+          )}
+        </Button>
+      </div>
     </div>
-  )
+  );
 }

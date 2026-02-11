@@ -2,19 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Image from "next/image";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -23,388 +22,325 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { vendorApi } from "@/lib/api/vendor";
+import { toast } from "sonner";
 import {
-  Search,
   Plus,
-  MoreHorizontal,
-  Eye,
+  Search,
+  MoreVertical,
   Edit,
   Trash2,
+  Eye,
+  EyeOff,
   Package,
-  Upload,
-  LayoutGrid,
-  List,
+  Filter,
+  ArrowUpDown,
+  ImageIcon,
 } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
 
-// Mock data
-const mockProducts = [
-  {
-    id: "1",
-    name: "iPhone 15 Pro Max 256GB",
-    nameRu: "iPhone 15 Pro Max 256GB",
-    image: "",
-    price: 15990000,
-    comparePrice: 17500000,
-    stock: 12,
-    status: "active",
-    category: "Smartfonlar",
-    createdAt: "2026-01-15",
-  },
-  {
-    id: "2",
-    name: "Samsung Galaxy S24 Ultra",
-    nameRu: "Samsung Galaxy S24 Ultra",
-    image: "",
-    price: 14500000,
-    comparePrice: 0,
-    stock: 8,
-    status: "active",
-    category: "Smartfonlar",
-    createdAt: "2026-01-14",
-  },
-  {
-    id: "3",
-    name: "MacBook Air M2 13\"",
-    nameRu: "MacBook Air M2 13\"",
-    image: "",
-    price: 12990000,
-    comparePrice: 14000000,
-    stock: 3,
-    status: "active",
-    category: "Noutbuklar",
-    createdAt: "2026-01-10",
-  },
-  {
-    id: "4",
-    name: "AirPods Pro 2",
-    nameRu: "AirPods Pro 2",
-    image: "",
-    price: 2990000,
-    comparePrice: 3500000,
-    stock: 25,
-    status: "pending",
-    category: "Quloqchinlar",
-    createdAt: "2026-01-28",
-  },
-  {
-    id: "5",
-    name: "Apple Watch Series 9",
-    nameRu: "Apple Watch Series 9",
-    image: "",
-    price: 5500000,
-    comparePrice: 0,
-    stock: 0,
-    status: "rejected",
-    category: "Smart soatlar",
-    createdAt: "2026-01-20",
-  },
-];
+function formatPrice(amount: number) {
+  return new Intl.NumberFormat("uz-UZ").format(amount) + " so'm";
+}
 
-const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "secondary" }> = {
-  active: { label: "Faol", variant: "success" },
-  pending: { label: "Tekshirilmoqda", variant: "warning" },
-  rejected: { label: "Rad etilgan", variant: "destructive" },
-  inactive: { label: "Nofaol", variant: "secondary" },
-};
+export default function ProductsPage() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [page, setPage] = useState(1);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const limit = 20;
 
-export default function VendorProductsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const { data, isLoading } = useQuery({
+    queryKey: ["vendor-products", { page, limit, search, status }],
+    queryFn: () =>
+      vendorApi.getProducts({
+        page,
+        limit,
+        search: search || undefined,
+        status: status !== "all" ? status : undefined,
+      }),
+  });
 
-  const filteredProducts = mockProducts.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => vendorApi.deleteProduct(id),
+    onSuccess: () => {
+      toast.success("Mahsulot o'chirildi");
+      queryClient.invalidateQueries({ queryKey: ["vendor-products"] });
+      setDeleteId(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Xatolik yuz berdi");
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      vendorApi.updateProduct(id, { isActive: active }),
+    onSuccess: () => {
+      toast.success("Mahsulot yangilandi");
+      queryClient.invalidateQueries({ queryKey: ["vendor-products"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Xatolik yuz berdi");
+    },
+  });
+
+  const products = data?.data || [];
+  const totalPages = data?.totalPages || 1;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Mahsulotlar</h2>
-          <p className="text-muted-foreground">Do'koningizdagi barcha mahsulotlar</p>
+          <h1 className="text-2xl font-bold">Mahsulotlar</h1>
+          <p className="text-muted-foreground">
+            Jami {data?.total || 0} ta mahsulot
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/vendor/products/import">
-              <Upload className="mr-2 h-4 w-4" />
-              Import
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/vendor/products/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Mahsulot qo'shish
-            </Link>
-          </Button>
-        </div>
+        <Button asChild className="rounded-full">
+          <Link href="/vendor/products/new">
+            <Plus className="mr-2 h-4 w-4" />
+            Mahsulot qo&apos;shish
+          </Link>
+        </Button>
       </div>
 
-      {/* Tabs & Filters */}
-      <Tabs defaultValue="all" className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <TabsList>
-            <TabsTrigger value="all">Barchasi ({mockProducts.length})</TabsTrigger>
-            <TabsTrigger value="active">
-              Faol ({mockProducts.filter((p) => p.status === "active").length})
-            </TabsTrigger>
-            <TabsTrigger value="pending">
-              Tekshirilmoqda ({mockProducts.filter((p) => p.status === "pending").length})
-            </TabsTrigger>
-            <TabsTrigger value="rejected">
-              Rad etilgan ({mockProducts.filter((p) => p.status === "rejected").length})
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="flex gap-2">
-            <div className="relative">
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Qidirish..."
-                className="pl-9 w-[200px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Mahsulot qidirish..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="pl-9"
               />
             </div>
-            <div className="flex border rounded-md">
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setViewMode("grid")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
+            <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Holati" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Barchasi</SelectItem>
+                <SelectItem value="active">Faol</SelectItem>
+                <SelectItem value="inactive">Nofaol</SelectItem>
+                <SelectItem value="out_of_stock">Tugagan</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-
-        <TabsContent value="all" className="space-y-4">
-          {viewMode === "list" ? (
-            <ProductsTable products={filteredProducts} />
-          ) : (
-            <ProductsGrid products={filteredProducts} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="active" className="space-y-4">
-          {viewMode === "list" ? (
-            <ProductsTable products={filteredProducts.filter((p) => p.status === "active")} />
-          ) : (
-            <ProductsGrid products={filteredProducts.filter((p) => p.status === "active")} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="pending" className="space-y-4">
-          {viewMode === "list" ? (
-            <ProductsTable products={filteredProducts.filter((p) => p.status === "pending")} />
-          ) : (
-            <ProductsGrid products={filteredProducts.filter((p) => p.status === "pending")} />
-          )}
-        </TabsContent>
-
-        <TabsContent value="rejected" className="space-y-4">
-          {viewMode === "list" ? (
-            <ProductsTable products={filteredProducts.filter((p) => p.status === "rejected")} />
-          ) : (
-            <ProductsGrid products={filteredProducts.filter((p) => p.status === "rejected")} />
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-// Products Table Component
-function ProductsTable({ products }: { products: typeof mockProducts }) {
-  if (products.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <Package className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Mahsulotlar topilmadi</p>
-          <Button className="mt-4" asChild>
-            <Link href="/vendor/products/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Mahsulot qo'shish
-            </Link>
-          </Button>
         </CardContent>
       </Card>
-    );
-  }
 
-  return (
-    <Card>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Mahsulot</TableHead>
-            <TableHead>Kategoriya</TableHead>
-            <TableHead>Narx</TableHead>
-            <TableHead>Ombor</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="w-[50px]"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {products.map((product) => (
-            <TableRow key={product.id}>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12 rounded-md">
-                    <AvatarImage src={product.image} />
-                    <AvatarFallback className="rounded-md">
-                      <Package className="h-6 w-6" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">{product.name}</div>
-                    <div className="text-xs text-muted-foreground">ID: {product.id}</div>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>{product.category}</TableCell>
-              <TableCell>
-                <div>
-                  <div className="font-medium">{formatPrice(product.price)}</div>
-                  {product.comparePrice > 0 && (
-                    <div className="text-xs text-muted-foreground line-through">
-                      {formatPrice(product.comparePrice)}
-                    </div>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <span className={product.stock < 5 ? "text-red-500 font-medium" : ""}>
-                  {product.stock} ta
-                </span>
-              </TableCell>
-              <TableCell>
-                <Badge variant={statusConfig[product.status].variant}>
-                  {statusConfig[product.status].label}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/vendor/products/${product.id}`}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ko'rish
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/vendor/products/${product.id}/edit`}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Tahrirlash
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      O'chirish
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
+      {/* Products Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <Skeleton className="aspect-square rounded-xl mb-3" />
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-5 w-1/2 mb-2" />
+                <Skeleton className="h-3 w-1/3" />
+              </CardContent>
+            </Card>
           ))}
-        </TableBody>
-      </Table>
-    </Card>
-  );
-}
-
-// Products Grid Component
-function ProductsGrid({ products }: { products: typeof mockProducts }) {
-  if (products.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <Package className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Mahsulotlar topilmadi</p>
-          <Button className="mt-4" asChild>
-            <Link href="/vendor/products/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Mahsulot qo'shish
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {products.map((product) => (
-        <Card key={product.id} className="overflow-hidden">
-          <div className="aspect-square bg-muted flex items-center justify-center">
-            {product.image ? (
-              <img src={product.image} alt={product.name} className="object-cover w-full h-full" />
-            ) : (
-              <Package className="h-12 w-12 text-muted-foreground" />
-            )}
-          </div>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="font-medium line-clamp-2">{product.name}</h3>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="shrink-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/vendor/products/${product.id}/edit`}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Tahrirlash
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    O'chirish
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <p className="text-sm text-muted-foreground mb-2">{product.category}</p>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-bold">{formatPrice(product.price)}</div>
-                {product.comparePrice > 0 && (
-                  <div className="text-xs text-muted-foreground line-through">
-                    {formatPrice(product.comparePrice)}
+        </div>
+      ) : products.length > 0 ? (
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          {products.map((product: any) => (
+            <motion.div key={product.id} variants={staggerItem}>
+              <Card className="overflow-hidden hover:shadow-md transition-shadow group">
+                <CardContent className="p-0">
+                  {/* Image */}
+                  <div className="relative aspect-square bg-muted">
+                    {product.images?.[0] ? (
+                      <Image
+                        src={product.images[0]}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <ImageIcon className="h-12 w-12 text-muted-foreground/30" />
+                      </div>
+                    )}
+                    {/* Actions overlay */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full shadow">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/vendor/products/${product.id}/edit`}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Tahrirlash
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              toggleMutation.mutate({
+                                id: product.id,
+                                active: !product.isActive,
+                              })
+                            }
+                          >
+                            {product.isActive ? (
+                              <>
+                                <EyeOff className="mr-2 h-4 w-4" />
+                                Nofaol qilish
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Faol qilish
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => setDeleteId(product.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            O&apos;chirish
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    {/* Status badge */}
+                    {!product.isActive && (
+                      <div className="absolute top-2 left-2">
+                        <Badge variant="secondary">Nofaol</Badge>
+                      </div>
+                    )}
+                    {product.stock === 0 && (
+                      <div className="absolute top-2 left-2">
+                        <Badge variant="destructive">Tugagan</Badge>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <Badge variant={statusConfig[product.status].variant}>
-                {statusConfig[product.status].label}
-              </Badge>
-            </div>
-            <p className={`text-sm mt-2 ${product.stock < 5 ? "text-red-500" : "text-muted-foreground"}`}>
-              Omborda: {product.stock} ta
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <h3 className="font-medium text-sm line-clamp-2 mb-1">
+                      {product.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-primary">
+                        {formatPrice(product.price)}
+                      </span>
+                      {product.originalPrice && product.originalPrice > product.price && (
+                        <span className="text-xs text-muted-foreground line-through">
+                          {formatPrice(product.originalPrice)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Ombor: {product.stock ?? 0} ta</span>
+                      <span>{product.soldCount ?? 0} sotildi</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      ) : (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+            <h3 className="text-lg font-semibold mb-2">
+              {search ? "Mahsulot topilmadi" : "Hali mahsulot qo'shilmagan"}
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              {search
+                ? "Boshqa kalit so'z bilan qidiring"
+                : "Birinchi mahsulotingizni qo'shing va sotishni boshlang"
+              }
             </p>
+            {!search && (
+              <Button asChild className="rounded-full">
+                <Link href="/vendor/products/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Mahsulot qo&apos;shish
+                </Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
-      ))}
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+            className="rounded-full"
+          >
+            Oldingi
+          </Button>
+          <span className="text-sm text-muted-foreground px-4">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage(page + 1)}
+            className="rounded-full"
+          >
+            Keyingi
+          </Button>
+        </div>
+      )}
+
+      {/* Delete Dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mahsulotni o&apos;chirish</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu amalni qaytarib bo&apos;lmaydi. Mahsulot butunlay o&apos;chiriladi.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Bekor qilish</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-red-600 hover:bg-red-700"
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+            >
+              O&apos;chirish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

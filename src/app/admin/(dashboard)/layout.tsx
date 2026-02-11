@@ -63,7 +63,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { user, profile, isLoading, isAdmin, signOut } = useAuth();
+  const { user, isLoading, logout } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -195,14 +196,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <Avatar className="h-9 w-9">
                     <AvatarImage src="" />
                     <AvatarFallback>
-                      {profile?.full_name?.charAt(0) || "A"}
+                      {user?.firstName?.charAt(0) || user?.email?.charAt(0) || "A"}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>
-                  {profile?.full_name || user?.email || "Admin"}
+                  {user?.firstName || user?.email || "Admin"}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
@@ -212,7 +213,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="cursor-pointer">
+                <DropdownMenuItem onClick={logout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Chiqish
                 </DropdownMenuItem>

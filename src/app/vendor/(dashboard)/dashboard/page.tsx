@@ -1,332 +1,291 @@
 "use client";
 
-import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { useQuery } from "@tanstack/react-query";
+import { vendorApi } from "@/lib/api/vendor";
+import Link from "next/link";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DollarSign,
-  ShoppingCart,
   Package,
+  ShoppingCart,
   TrendingUp,
-  ArrowRight,
-  Clock,
-  AlertCircle,
   Wallet,
-  Plus,
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
   Eye,
+  Clock,
 } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
 
-// Mock data
-const shopStats = {
-  balance: 15000000,
-  pendingPayout: 5000000,
-  todayOrders: 12,
-  todaySales: 3500000,
-  totalProducts: 156,
-  pendingProducts: 5,
-  monthSales: 45000000,
-};
+function formatPrice(amount: number) {
+  return new Intl.NumberFormat("uz-UZ").format(amount) + " so'm";
+}
 
-const recentOrders = [
-  {
-    id: "ORD-1234",
-    customer: "Aziz Karimov",
-    items: 3,
-    total: 1250000,
-    status: "pending",
-    date: "14:30",
-  },
-  {
-    id: "ORD-1233",
-    customer: "Malika Rahimova",
-    items: 1,
-    total: 450000,
-    status: "confirmed",
-    date: "13:15",
-  },
-  {
-    id: "ORD-1232",
-    customer: "Bobur Toshmatov",
-    items: 2,
-    total: 890000,
-    status: "shipped",
-    date: "11:45",
-  },
-  {
-    id: "ORD-1231",
-    customer: "Gulnora Saidova",
-    items: 4,
-    total: 2100000,
-    status: "delivered",
-    date: "10:20",
-  },
-];
+function StatCard({
+  title,
+  value,
+  change,
+  changeType,
+  icon: Icon,
+  loading,
+}: {
+  title: string;
+  value: string;
+  change?: string;
+  changeType?: "positive" | "negative" | "neutral";
+  icon: any;
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <Skeleton className="h-4 w-24 mb-3" />
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-3 w-20" />
+        </CardContent>
+      </Card>
+    );
+  }
 
-const lowStockProducts = [
-  { id: 1, name: "iPhone 15 Pro Max", stock: 2 },
-  { id: 2, name: "AirPods Pro 2", stock: 3 },
-  { id: 3, name: "MacBook Air M2", stock: 1 },
-];
+  return (
+    <motion.div variants={staggerItem}>
+      <Card className="hover:shadow-md transition-shadow">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-muted-foreground">{title}</span>
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Icon className="h-5 w-5 text-primary" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold">{value}</div>
+          {change && (
+            <div className={`flex items-center gap-1 mt-1 text-sm ${
+              changeType === "positive" ? "text-green-600" :
+              changeType === "negative" ? "text-red-600" :
+              "text-muted-foreground"
+            }`}>
+              {changeType === "positive" && <ArrowUpRight className="h-4 w-4" />}
+              {changeType === "negative" && <ArrowDownRight className="h-4 w-4" />}
+              {change}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
 
-const statusColors: Record<string, "warning" | "default" | "secondary" | "success"> = {
-  pending: "warning",
-  confirmed: "default",
-  shipped: "secondary",
-  delivered: "success",
-};
+function OrderStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    pending: { label: "Kutilmoqda", variant: "secondary" },
+    confirmed: { label: "Tasdiqlangan", variant: "default" },
+    preparing: { label: "Tayyorlanmoqda", variant: "default" },
+    shipping: { label: "Yetkazilmoqda", variant: "default" },
+    delivered: { label: "Yetkazildi", variant: "outline" },
+    cancelled: { label: "Bekor qilindi", variant: "destructive" },
+  };
+  const c = config[status] || { label: status, variant: "secondary" as const };
+  return <Badge variant={c.variant}>{c.label}</Badge>;
+}
 
-const statusLabels: Record<string, string> = {
-  pending: "Kutilmoqda",
-  confirmed: "Tasdiqlangan",
-  shipped: "Yetkazilmoqda",
-  delivered: "Yetkazildi",
-};
+export default function DashboardPage() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["vendor-stats"],
+    queryFn: vendorApi.getStats,
+  });
 
-export default function VendorDashboard() {
+  const { data: recentOrders, isLoading: ordersLoading } = useQuery({
+    queryKey: ["vendor-orders", { page: 1, limit: 5 }],
+    queryFn: () => vendorApi.getOrders({ page: 1, limit: 5 }),
+  });
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">Do'koningiz umumiy ko'rinishi</p>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Bugungi holat va statistika</p>
         </div>
-        <Button asChild>
+        <Button asChild className="rounded-full">
           <Link href="/vendor/products/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Mahsulot qo'shish
+            <Package className="mr-2 h-4 w-4" />
+            Mahsulot qo&apos;shish
           </Link>
         </Button>
       </div>
 
-      {/* Balance Card */}
-      <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <p className="text-primary-foreground/80 text-sm">Joriy balans</p>
-              <p className="text-4xl font-bold">{formatPrice(shopStats.balance)}</p>
-              <p className="text-primary-foreground/60 text-sm mt-1">
-                Kutilayotgan: {formatPrice(shopStats.pendingPayout)}
-              </p>
-            </div>
-            <Button variant="secondary" asChild>
-              <Link href="/vendor/balance">
-                <Wallet className="mr-2 h-4 w-4" />
-                Pul yechib olish
+      {/* Stats Grid */}
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        <StatCard
+          title="Bugungi savdo"
+          value={stats ? formatPrice(stats.revenue?.today || 0) : "0 so'm"}
+          icon={Wallet}
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Buyurtmalar"
+          value={stats ? String(stats.orders?.total || 0) : "0"}
+          icon={ShoppingCart}
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Mahsulotlar"
+          value={stats ? String(stats.products?.total || 0) : "0"}
+          icon={Package}
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Sharhlar"
+          value={stats ? String(stats.reviewCount || 0) : "0"}
+          icon={Eye}
+          loading={statsLoading}
+        />
+      </motion.div>
+
+      {/* Quick Actions & Recent Orders */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Recent Orders */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg">So&apos;nggi buyurtmalar</CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/vendor/orders">
+                Barchasi
+                <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Bugungi buyurtmalar
-            </CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{shopStats.todayOrders}</div>
-            <p className="text-xs text-muted-foreground">
-              <TrendingUp className="inline h-3 w-3 text-green-500 mr-1" />
-              +3 kechagiga nisbatan
-            </p>
+            {ordersLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-muted/50">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-32 mb-1" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                ))}
+              </div>
+            ) : recentOrders?.data && recentOrders.data.length > 0 ? (
+              <div className="space-y-2">
+                {recentOrders.data.map((order: any) => (
+                  <Link
+                    key={order.id}
+                    href={`/vendor/orders?id=${order.id}`}
+                    className="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <ShoppingCart className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        Buyurtma #{order.orderNumber || order.id?.slice(-6)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {order.itemCount || 1} ta mahsulot • {formatPrice(order.total || 0)}
+                      </p>
+                    </div>
+                    <OrderStatusBadge status={order.status} />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <ShoppingCart className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p>Hozircha buyurtmalar yo&apos;q</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Quick Actions */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Bugungi sotuvlar
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle className="text-lg">Tezkor amallar</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(shopStats.todaySales)}</div>
-            <p className="text-xs text-muted-foreground">
-              <TrendingUp className="inline h-3 w-3 text-green-500 mr-1" />
-              +12% kechagiga nisbatan
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Jami mahsulotlar
-            </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{shopStats.totalProducts}</div>
-            <p className="text-xs text-muted-foreground">
-              {shopStats.pendingProducts} ta moderatsiyada
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Oylik sotuvlar
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(shopStats.monthSales)}</div>
-            <p className="text-xs text-muted-foreground">
-              <TrendingUp className="inline h-3 w-3 text-green-500 mr-1" />
-              +23% o'tgan oyga nisbatan
-            </p>
+          <CardContent className="space-y-3">
+            <Button variant="outline" className="w-full justify-start rounded-xl h-12" asChild>
+              <Link href="/vendor/products/new">
+                <Package className="mr-3 h-5 w-5 text-primary" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Mahsulot qo&apos;shish</div>
+                  <div className="text-xs text-muted-foreground">Yangi mahsulot yuklash</div>
+                </div>
+              </Link>
+            </Button>
+            <Button variant="outline" className="w-full justify-start rounded-xl h-12" asChild>
+              <Link href="/vendor/orders">
+                <ShoppingCart className="mr-3 h-5 w-5 text-orange-500" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Buyurtmalar</div>
+                  <div className="text-xs text-muted-foreground">
+                    {stats?.orders?.pending ? `${stats.orders.pending} ta kutilmoqda` : "Barcha buyurtmalar"}
+                  </div>
+                </div>
+              </Link>
+            </Button>
+            <Button variant="outline" className="w-full justify-start rounded-xl h-12" asChild>
+              <Link href="/vendor/balance">
+                <Wallet className="mr-3 h-5 w-5 text-green-500" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Hisobim</div>
+                  <div className="text-xs text-muted-foreground">Balans va to&apos;lovlar</div>
+                </div>
+              </Link>
+            </Button>
+            <Button variant="outline" className="w-full justify-start rounded-xl h-12" asChild>
+              <Link href="/vendor/analytics">
+                <TrendingUp className="mr-3 h-5 w-5 text-blue-500" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Statistika</div>
+                  <div className="text-xs text-muted-foreground">Batafsil analitika</div>
+                </div>
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
 
       {/* Alerts */}
-      {lowStockProducts.length > 0 && (
-        <Card className="border-yellow-500/50 bg-yellow-500/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-yellow-500" />
-              Kam qolgan mahsulotlar
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {lowStockProducts.map((product) => (
-                <Badge key={product.id} variant="outline" className="gap-2">
-                  {product.name}
-                  <span className="text-yellow-500 font-bold">{product.stock} ta</span>
-                </Badge>
-              ))}
-            </div>
-            <Button variant="link" size="sm" className="px-0 mt-2" asChild>
-              <Link href="/vendor/products?stock=low">
-                Barchasini ko'rish <ArrowRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Orders */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>So'nggi buyurtmalar</CardTitle>
-                <CardDescription>Bugungi buyurtmalar</CardDescription>
+      {stats && stats.orders?.pending > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center flex-shrink-0">
+                <Clock className="h-5 w-5 text-orange-600" />
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/vendor/orders">Barchasi</Link>
+              <div className="flex-1">
+                <p className="font-medium text-orange-800 dark:text-orange-200">
+                  {stats.orders.pending} ta buyurtma kutilmoqda
+                </p>
+                <p className="text-sm text-orange-600 dark:text-orange-400">
+                  Buyurtmalarni tezroq tasdiqlang
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="rounded-full border-orange-300" asChild>
+                <Link href="/vendor/orders">Ko&apos;rish</Link>
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Buyurtma</TableHead>
-                  <TableHead>Summa</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{order.id}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {order.customer} • {order.items} ta
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatPrice(order.total)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusColors[order.status]}>
-                        {statusLabels[order.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link href={`/vendor/orders/${order.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Sales Chart Placeholder */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Sotuvlar statistikasi</CardTitle>
-            <CardDescription>Oxirgi 7 kunlik sotuvlar</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <TrendingUp className="h-12 w-12 mx-auto mb-2 text-primary/50" />
-                <p>Chart komponent qo'shiladi</p>
-                <p className="text-xs mt-1">Recharts kutubxonasi</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
-          <Link href="/vendor/products/new">
-            <CardContent className="pt-6 text-center">
-              <Plus className="h-8 w-8 mx-auto mb-2 text-primary" />
-              <h3 className="font-medium">Yangi mahsulot</h3>
-              <p className="text-sm text-muted-foreground">Mahsulot qo'shish</p>
             </CardContent>
-          </Link>
-        </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
-          <Link href="/vendor/orders?status=pending">
-            <CardContent className="pt-6 text-center">
-              <Clock className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-              <h3 className="font-medium">Kutilayotgan</h3>
-              <p className="text-sm text-muted-foreground">3 ta buyurtma</p>
-            </CardContent>
-          </Link>
-        </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
-          <Link href="/vendor/balance">
-            <CardContent className="pt-6 text-center">
-              <Wallet className="h-8 w-8 mx-auto mb-2 text-green-500" />
-              <h3 className="font-medium">Pul yechish</h3>
-              <p className="text-sm text-muted-foreground">{formatPrice(shopStats.balance)}</p>
-            </CardContent>
-          </Link>
-        </Card>
-      </div>
+          </Card>
+        </motion.div>
+      )}
     </div>
   );
 }

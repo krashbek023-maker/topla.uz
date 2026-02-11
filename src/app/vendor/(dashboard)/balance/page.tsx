@@ -1,390 +1,342 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { vendorApi } from "@/lib/api/vendor";
+import { toast } from "sonner";
 import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
+  CreditCard,
+  TrendingUp,
   Clock,
   CheckCircle,
-  XCircle,
   Loader2,
-  CreditCard,
+  Banknote,
   DollarSign,
-  TrendingUp,
 } from "lucide-react";
-import { formatPrice, formatDateTime } from "@/lib/utils";
 
-// Mock data
-const balanceData = {
-  available: 15000000,
-  pending: 5000000,
-  totalEarned: 125000000,
-  totalWithdrawn: 110000000,
-  commissionRate: 10,
-};
+function formatPrice(amount: number) {
+  return new Intl.NumberFormat("uz-UZ").format(amount) + " so'm";
+}
 
-const transactions = [
-  {
-    id: "1",
-    type: "order",
-    description: "Buyurtma #ORD-1234",
-    amount: 1250000,
-    commission: 125000,
-    status: "completed",
-    date: "2026-01-29T14:30:00",
-  },
-  {
-    id: "2",
-    type: "payout",
-    description: "Pul yechish",
-    amount: -5000000,
-    commission: 0,
-    status: "completed",
-    date: "2026-01-28T10:00:00",
-  },
-  {
-    id: "3",
-    type: "order",
-    description: "Buyurtma #ORD-1233",
-    amount: 450000,
-    commission: 45000,
-    status: "completed",
-    date: "2026-01-28T09:15:00",
-  },
-  {
-    id: "4",
-    type: "payout",
-    description: "Pul yechish",
-    amount: -3000000,
-    commission: 0,
-    status: "pending",
-    date: "2026-01-27T16:00:00",
-  },
-  {
-    id: "5",
-    type: "order",
-    description: "Buyurtma #ORD-1232",
-    amount: 890000,
-    commission: 89000,
-    status: "completed",
-    date: "2026-01-27T11:45:00",
-  },
-];
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString("uz-UZ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-const payoutHistory = [
-  {
-    id: "1",
-    amount: 5000000,
-    cardNumber: "8600 **** **** 1234",
-    cardHolder: "AZIZ KARIMOV",
-    status: "completed",
-    requestedAt: "2026-01-25T10:00:00",
-    completedAt: "2026-01-26T14:30:00",
-  },
-  {
-    id: "2",
-    amount: 3000000,
-    cardNumber: "8600 **** **** 1234",
-    cardHolder: "AZIZ KARIMOV",
-    status: "pending",
-    requestedAt: "2026-01-27T16:00:00",
-    completedAt: null,
-  },
-];
-
-const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "destructive" }> = {
-  completed: { label: "Bajarildi", variant: "success" },
-  pending: { label: "Kutilmoqda", variant: "warning" },
-  rejected: { label: "Rad etildi", variant: "destructive" },
-};
-
-export default function VendorBalancePage() {
-  const [isPayoutOpen, setIsPayoutOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+export default function BalancePage() {
+  const queryClient = useQueryClient();
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState("");
   const [cardNumber, setCardNumber] = useState("");
-  const [cardHolder, setCardHolder] = useState("");
 
-  const handlePayout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // TODO: Implement actual payout request
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsPayoutOpen(false);
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["vendor-stats"],
+    queryFn: vendorApi.getStats,
+  });
+
+  const { data: transactions, isLoading: txLoading } = useQuery({
+    queryKey: ["vendor-transactions"],
+    queryFn: () => vendorApi.getTransactions({ page: 1, limit: 50 }),
+  });
+
+  const { data: payouts } = useQuery({
+    queryKey: ["vendor-payouts"],
+    queryFn: () => vendorApi.getPayouts({ page: 1, limit: 20 }),
+  });
+
+  const payoutMutation = useMutation({
+    mutationFn: () =>
+      vendorApi.requestPayout({
+        amount: Number(payoutAmount),
+        cardNumber: cardNumber.replace(/\s/g, ""),
+      }),
+    onSuccess: () => {
+      toast.success("To'lov so'rovi yuborildi");
+      queryClient.invalidateQueries({ queryKey: ["vendor-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-payouts"] });
+      setPayoutDialogOpen(false);
       setPayoutAmount("");
-    }, 2000);
-  };
+      setCardNumber("");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Xatolik yuz berdi");
+    },
+  });
+
+  const balance = stats?.balance || 0;
+  const todayRevenue = stats?.revenue?.today || 0;
+  const totalRevenue = stats?.revenue?.total || 0;
+  const totalCommission = stats?.totalCommission || 0;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Hisobim</h2>
-        <p className="text-muted-foreground">Balans va tranzaksiyalar tarixi</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Hisobim</h1>
+          <p className="text-muted-foreground">Balans va to&apos;lov tarixi</p>
+        </div>
+        <Button
+          className="rounded-full"
+          onClick={() => setPayoutDialogOpen(true)}
+          disabled={balance <= 0}
+        >
+          <Banknote className="mr-2 h-4 w-4" />
+          Pul yechish
+        </Button>
       </div>
 
       {/* Balance Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Wallet className="h-5 w-5" />
-              <span className="text-sm font-medium">Mavjud balans</span>
-            </div>
-            <div className="text-3xl font-bold">{formatPrice(balanceData.available)}</div>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-4"
-              onClick={() => setIsPayoutOpen(true)}
-            >
-              Pul yechib olish
-            </Button>
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={staggerItem}>
+          <Card className="bg-primary text-primary-foreground">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-primary-foreground/80">Mavjud balans</span>
+                <Wallet className="h-5 w-5 text-primary-foreground/60" />
+              </div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-32 bg-primary-foreground/20" />
+              ) : (
+                <div className="text-3xl font-bold">{formatPrice(balance)}</div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={staggerItem}>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-muted-foreground">Bugungi daromad</span>
+                <DollarSign className="h-5 w-5 text-yellow-500" />
+              </div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-32" />
+              ) : (
+                <div className="text-2xl font-bold">{formatPrice(todayRevenue)}</div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">Bugungi savdo</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={staggerItem}>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-muted-foreground">Jami daromad</span>
+                <TrendingUp className="h-5 w-5 text-green-500" />
+              </div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-32" />
+              ) : (
+                <div className="text-2xl font-bold text-green-600">{formatPrice(totalRevenue)}</div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={staggerItem}>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-muted-foreground">Komissiya</span>
+                <ArrowUpRight className="h-5 w-5 text-blue-500" />
+              </div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-32" />
+              ) : (
+                <div className="text-2xl font-bold">{formatPrice(totalCommission)}</div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Transaction History */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Tranzaksiyalar</CardTitle>
+            <CardDescription>So&apos;nggi pul harakatlari</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {txLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-32 mb-1" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-5 w-20" />
+                  </div>
+                ))}
+              </div>
+            ) : transactions?.data && transactions.data.length > 0 ? (
+              <div className="space-y-3">
+                {transactions.data.map((tx: any) => (
+                  <div key={tx.id} className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                      tx.type === "credit" || tx.type === "sale"
+                        ? "bg-green-100 dark:bg-green-900/30"
+                        : "bg-red-100 dark:bg-red-900/30"
+                    }`}>
+                      {tx.type === "credit" || tx.type === "sale" ? (
+                        <ArrowDownRight className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <ArrowUpRight className="h-5 w-5 text-red-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{tx.description || (tx.type === "sale" ? "Savdo" : "To'lov")}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(tx.createdAt)}</p>
+                    </div>
+                    <span className={`font-semibold text-sm ${
+                      tx.type === "credit" || tx.type === "sale" ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {tx.type === "credit" || tx.type === "sale" ? "+" : "-"}
+                      {formatPrice(tx.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <DollarSign className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>Hozircha tranzaksiyalar yo&apos;q</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Payout History */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-              <Clock className="h-5 w-5" />
-              <span className="text-sm font-medium">Kutilayotgan</span>
-            </div>
-            <div className="text-2xl font-bold">{formatPrice(balanceData.pending)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Yetkazilgandan keyin qo'shiladi
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-              <TrendingUp className="h-5 w-5" />
-              <span className="text-sm font-medium">Jami daromad</span>
-            </div>
-            <div className="text-2xl font-bold">{formatPrice(balanceData.totalEarned)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Komissiya: {balanceData.commissionRate}%
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-              <DollarSign className="h-5 w-5" />
-              <span className="text-sm font-medium">Yechib olingan</span>
-            </div>
-            <div className="text-2xl font-bold">{formatPrice(balanceData.totalWithdrawn)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Jami yechib olingan summa
-            </p>
+          <CardHeader>
+            <CardTitle className="text-lg">To&apos;lov so&apos;rovlari</CardTitle>
+            <CardDescription>Pul yechish tarixi</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {payouts?.data && payouts.data.length > 0 ? (
+              <div className="space-y-3">
+                {payouts.data.map((payout: any) => (
+                  <div key={payout.id} className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <CreditCard className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">
+                        {formatPrice(payout.amount)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(payout.createdAt)}
+                        {payout.cardNumber && ` • ****${payout.cardNumber.slice(-4)}`}
+                      </p>
+                    </div>
+                    <Badge variant={
+                      payout.status === "completed" ? "default" :
+                      payout.status === "pending" ? "secondary" :
+                      "destructive"
+                    }>
+                      {payout.status === "completed" ? "Bajarildi" :
+                       payout.status === "pending" ? "Kutilmoqda" :
+                       "Rad etildi"
+                      }
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Banknote className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>Hali to&apos;lov so&apos;rovlari yo&apos;q</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Transactions Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tranzaksiyalar tarixi</CardTitle>
-          <CardDescription>Oxirgi 30 kunlik tranzaksiyalar</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tavsif</TableHead>
-                <TableHead>Summa</TableHead>
-                <TableHead>Komissiya</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Sana</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                          tx.type === "order"
-                            ? "bg-green-500/20 text-green-500"
-                            : "bg-blue-500/20 text-blue-500"
-                        }`}
-                      >
-                        {tx.type === "order" ? (
-                          <ArrowDownRight className="h-4 w-4" />
-                        ) : (
-                          <ArrowUpRight className="h-4 w-4" />
-                        )}
-                      </div>
-                      <span className="font-medium">{tx.description}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={tx.amount > 0 ? "text-green-500" : "text-blue-500"}>
-                      {tx.amount > 0 ? "+" : ""}
-                      {formatPrice(tx.amount)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {tx.commission > 0 ? (
-                      <span className="text-red-500">-{formatPrice(tx.commission)}</span>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusConfig[tx.status].variant}>
-                      {statusConfig[tx.status].label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDateTime(tx.date)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Payout History */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pul yechish tarixi</CardTitle>
-          <CardDescription>So'rovlar va ularning holati</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Summa</TableHead>
-                <TableHead>Karta</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>So'rov sanasi</TableHead>
-                <TableHead>Bajarilgan</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payoutHistory.map((payout) => (
-                <TableRow key={payout.id}>
-                  <TableCell className="font-medium">{formatPrice(payout.amount)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div>{payout.cardNumber}</div>
-                        <div className="text-xs text-muted-foreground">{payout.cardHolder}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusConfig[payout.status].variant}>
-                      {statusConfig[payout.status].label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDateTime(payout.requestedAt)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {payout.completedAt ? formatDateTime(payout.completedAt) : "-"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
       {/* Payout Dialog */}
-      <Dialog open={isPayoutOpen} onOpenChange={setIsPayoutOpen}>
+      <Dialog open={payoutDialogOpen} onOpenChange={setPayoutDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Pul yechib olish</DialogTitle>
+            <DialogTitle>Pul yechish</DialogTitle>
             <DialogDescription>
-              Mavjud balans: {formatPrice(balanceData.available)}
+              Mavjud balans: {formatPrice(balance)}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handlePayout}>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Summa (so'm)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="1000000"
-                  value={payoutAmount}
-                  onChange={(e) => setPayoutAmount(e.target.value)}
-                  max={balanceData.available}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Minimal summa: 100,000 so'm
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cardNumber">Karta raqami</Label>
-                <Input
-                  id="cardNumber"
-                  placeholder="8600 1234 5678 9012"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cardHolder">Karta egasi</Label>
-                <Input
-                  id="cardHolder"
-                  placeholder="AZIZ KARIMOV"
-                  value={cardHolder}
-                  onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                  required
-                />
-              </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="payoutAmount">Summa (so&apos;m)</Label>
+              <Input
+                id="payoutAmount"
+                type="number"
+                placeholder="100000"
+                value={payoutAmount}
+                onChange={(e) => setPayoutAmount(e.target.value)}
+                max={balance}
+                min={10000}
+              />
+              <p className="text-xs text-muted-foreground">Minimal: 10,000 so&apos;m</p>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsPayoutOpen(false)}>
-                Bekor qilish
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Yuborilmoqda...
-                  </>
-                ) : (
-                  "So'rov yuborish"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+            <div className="space-y-2">
+              <Label htmlFor="cardNumber">Karta raqami</Label>
+              <Input
+                id="cardNumber"
+                placeholder="8600 1234 5678 9012"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayoutDialogOpen(false)} className="rounded-full">
+              Bekor qilish
+            </Button>
+            <Button
+              className="rounded-full"
+              onClick={() => payoutMutation.mutate()}
+              disabled={payoutMutation.isPending || !payoutAmount || Number(payoutAmount) <= 0 || !cardNumber}
+            >
+              {payoutMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Yuborilmoqda...
+                </>
+              ) : (
+                "So'rov yuborish"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

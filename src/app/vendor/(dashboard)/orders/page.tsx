@@ -1,353 +1,415 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { vendorApi } from "@/lib/api/vendor";
+import { toast } from "sonner";
+import {
+  Search,
+  ShoppingCart,
+  Filter,
+  Clock,
+  CheckCircle,
+  Truck,
+  XCircle,
+  Package,
+  Phone,
+  MapPin,
+  User,
+  Calendar,
+  Loader2,
+} from "lucide-react";
 
-// Mock data
-const orders = [
-  {
-    id: 'ORD-001',
-    customer: 'Abdulloh Karimov',
-    phone: '+998 90 123 45 67',
-    items: [
-      { name: 'iPhone 15 Pro Max', quantity: 1, price: 15900000 },
-      { name: 'AirPods Pro', quantity: 1, price: 2600000 },
-    ],
-    total: 18500000,
-    status: 'pending',
-    paymentMethod: 'Naqd',
-    address: 'Toshkent, Yunusobod tumani, 12-uy',
-    createdAt: '2026-01-28 14:30',
-  },
-  {
-    id: 'ORD-002',
-    customer: 'Malika Rahimova',
-    phone: '+998 91 234 56 78',
-    items: [
-      { name: 'Samsung Galaxy S24', quantity: 1, price: 12500000 },
-    ],
-    total: 12500000,
-    status: 'processing',
-    paymentMethod: 'Karta',
-    address: 'Toshkent, Mirzo Ulug\'bek tumani, 5-dom',
-    createdAt: '2026-01-28 12:15',
-  },
-  {
-    id: 'ORD-003',
-    customer: 'Jasur Toshmatov',
-    phone: '+998 93 345 67 89',
-    items: [
-      { name: 'MacBook Pro M3', quantity: 1, price: 32000000 },
-    ],
-    total: 32000000,
-    status: 'shipped',
-    paymentMethod: 'Naqd',
-    address: 'Samarqand, Registon ko\'chasi, 45',
-    createdAt: '2026-01-27 10:00',
-  },
-  {
-    id: 'ORD-004',
-    customer: 'Nodira Aliyeva',
-    phone: '+998 94 456 78 90',
-    items: [
-      { name: 'iPad Pro 12.9', quantity: 1, price: 18000000 },
-    ],
-    total: 18000000,
-    status: 'delivered',
-    paymentMethod: 'Karta',
-    address: 'Buxoro, Mustaqillik ko\'chasi, 78',
-    createdAt: '2026-01-26 16:45',
-  },
-]
-
-const statusConfig: Record<string, { color: string; label: string; nextStatus?: string; nextLabel?: string }> = {
-  pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Yangi', nextStatus: 'processing', nextLabel: 'Qabul qilish' },
-  processing: { color: 'bg-blue-100 text-blue-800', label: 'Tayyorlanmoqda', nextStatus: 'shipped', nextLabel: 'Jo\'natish' },
-  shipped: { color: 'bg-purple-100 text-purple-800', label: 'Yo\'lda', nextStatus: 'delivered', nextLabel: 'Yetkazildi' },
-  delivered: { color: 'bg-green-100 text-green-800', label: 'Yetkazildi' },
-  cancelled: { color: 'bg-red-100 text-red-800', label: 'Bekor qilindi' },
+function formatPrice(amount: number) {
+  return new Intl.NumberFormat("uz-UZ").format(amount) + " so'm";
 }
 
-export default function VendorOrdersPage() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState('all')
-  const [selectedOrder, setSelectedOrder] = useState<typeof orders[0] | null>(null)
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString("uz-UZ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTab = activeTab === 'all' || order.status === activeTab
-    return matchesSearch && matchesTab
-  })
+const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
+  pending: { label: "Kutilmoqda", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400", icon: Clock },
+  confirmed: { label: "Tasdiqlangan", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", icon: CheckCircle },
+  preparing: { label: "Tayyorlanmoqda", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400", icon: Package },
+  shipping: { label: "Yetkazilmoqda", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400", icon: Truck },
+  delivered: { label: "Yetkazildi", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: CheckCircle },
+  cancelled: { label: "Bekor qilindi", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: XCircle },
+};
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' so\'m'
-  }
+const nextStatus: Record<string, string> = {
+  pending: "confirmed",
+  confirmed: "preparing",
+  preparing: "shipping",
+  shipping: "delivered",
+};
 
-  const handleUpdateStatus = (orderId: string, newStatus: string) => {
-    console.log('Updating order status:', orderId, newStatus)
-    // API call
-  }
+const nextStatusLabel: Record<string, string> = {
+  pending: "Tasdiqlash",
+  confirmed: "Tayyorlashni boshlash",
+  preparing: "Yetkazishga berish",
+  shipping: "Yetkazildi",
+};
 
-  const stats = {
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    shipped: orders.filter(o => o.status === 'shipped').length,
-    todayRevenue: orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0),
-  }
+export default function OrdersPage() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const limit = 20;
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["vendor-orders", { page, limit, search, status: statusFilter }],
+    queryFn: () =>
+      vendorApi.getOrders({
+        page,
+        limit,
+        search: search || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      }),
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ orderId, status }: { orderId: string; status: string }) =>
+      vendorApi.updateOrderStatus(orderId, status),
+    onSuccess: () => {
+      toast.success("Buyurtma holati yangilandi");
+      queryClient.invalidateQueries({ queryKey: ["vendor-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-stats"] });
+      if (selectedOrder) {
+        setSelectedOrder((prev: any) => prev ? { ...prev, status: nextStatus[prev.status] } : null);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Xatolik yuz berdi");
+    },
+  });
+
+  const orders = data?.data || [];
+  const totalPages = data?.totalPages || 1;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Buyurtmalar</h1>
-        <p className="text-muted-foreground">
-          Do'koningizga kelgan buyurtmalarni boshqaring
-        </p>
+        <h1 className="text-2xl font-bold">Buyurtmalar</h1>
+        <p className="text-muted-foreground">Jami {data?.total || 0} ta buyurtma</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Yangi</CardTitle>
-            <span className="text-2xl">🔔</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">Qabul qilish kerak</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tayyorlanmoqda</CardTitle>
-            <span className="text-2xl">📦</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.processing}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Yo'lda</CardTitle>
-            <span className="text-2xl">🚚</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{stats.shipped}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bugungi daromad</CardTitle>
-            <span className="text-2xl">💰</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatPrice(stats.todayRevenue)}</div>
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Buyurtmalar ro'yxati</CardTitle>
-              <CardDescription>Buyurtma statusini o'zgartiring</CardDescription>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buyurtma raqami yoki mijoz nomi..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="pl-9"
+              />
             </div>
-            <Input
-              placeholder="Qidirish (ID, mijoz)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-64"
-            />
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-[200px]">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Holati" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Barchasi</SelectItem>
+                <SelectItem value="pending">Kutilmoqda</SelectItem>
+                <SelectItem value="confirmed">Tasdiqlangan</SelectItem>
+                <SelectItem value="preparing">Tayyorlanmoqda</SelectItem>
+                <SelectItem value="shipping">Yetkazilmoqda</SelectItem>
+                <SelectItem value="delivered">Yetkazildi</SelectItem>
+                <SelectItem value="cancelled">Bekor qilindi</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="all">Barchasi</TabsTrigger>
-              <TabsTrigger value="pending" className="relative">
-                Yangi
-                {stats.pending > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {stats.pending}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="processing">Tayyorlanmoqda</TabsTrigger>
-              <TabsTrigger value="shipped">Yo'lda</TabsTrigger>
-              <TabsTrigger value="delivered">Yetkazildi</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value={activeTab} className="mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Buyurtma</TableHead>
-                    <TableHead>Mijoz</TableHead>
-                    <TableHead>Mahsulotlar</TableHead>
-                    <TableHead>Summa</TableHead>
-                    <TableHead>To'lov</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Amallar</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id} className={order.status === 'pending' ? 'bg-yellow-50' : ''}>
-                      <TableCell>
-                        <div>
-                          <div className="font-mono font-medium">{order.id}</div>
-                          <div className="text-xs text-muted-foreground">{order.createdAt}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{order.customer}</div>
-                          <div className="text-sm text-muted-foreground">{order.phone}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {order.items.map((item, idx) => (
-                            <div key={idx}>{item.quantity}x {item.name}</div>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{formatPrice(order.total)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{order.paymentMethod}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={statusConfig[order.status].color}>
-                          {statusConfig[order.status].label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedOrder(order)}
-                          >
-                            Ko'rish
-                          </Button>
-                          {statusConfig[order.status].nextStatus && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleUpdateStatus(order.id, statusConfig[order.status].nextStatus!)}
-                            >
-                              {statusConfig[order.status].nextLabel}
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              {filteredOrders.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  Buyurtmalar topilmadi
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
         </CardContent>
       </Card>
 
+      {/* Orders List */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4 flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="flex-1">
+                  <Skeleton className="h-4 w-40 mb-2" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-5 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : orders.length > 0 ? (
+        <motion.div
+          className="space-y-3"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          {orders.map((order: any) => {
+            const sc = statusConfig[order.status] || statusConfig.pending;
+            const StatusIcon = sc.icon;
+            return (
+              <motion.div key={order.id} variants={staggerItem}>
+                <Card
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <StatusIcon className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-semibold">
+                            #{order.orderNumber || order.id?.slice(-6)}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${sc.color}`}>
+                            {sc.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {order.customerName || "Mijoz"}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(order.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="font-bold">{formatPrice(order.total || 0)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {order.itemCount || 1} ta mahsulot
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick action for pending orders */}
+                    {nextStatus[order.status] && (
+                      <div className="mt-3 pt-3 border-t flex justify-end">
+                        <Button
+                          size="sm"
+                          className="rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStatusMutation.mutate({
+                              orderId: order.id,
+                              status: nextStatus[order.status],
+                            });
+                          }}
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          {updateStatusMutation.isPending ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : null}
+                          {nextStatusLabel[order.status]}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      ) : (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <ShoppingCart className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+            <h3 className="text-lg font-semibold mb-2">
+              {search || statusFilter !== "all" ? "Buyurtma topilmadi" : "Hali buyurtmalar yo'q"}
+            </h3>
+            <p className="text-muted-foreground">
+              {search || statusFilter !== "all"
+                ? "Filtrlarni o'zgartiring"
+                : "Yangi buyurtmalar tushganda bu yerda ko'rinadi"
+              }
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+            className="rounded-full"
+          >
+            Oldingi
+          </Button>
+          <span className="text-sm text-muted-foreground px-4">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage(page + 1)}
+            className="rounded-full"
+          >
+            Keyingi
+          </Button>
+        </div>
+      )}
+
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Buyurtma: {selectedOrder?.id}</DialogTitle>
-            <DialogDescription>
-              {selectedOrder?.createdAt}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-lg">
           {selectedOrder && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2">Mijoz ma'lumotlari</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="text-muted-foreground">Ism:</span> {selectedOrder.customer}</p>
-                    <p><span className="text-muted-foreground">Telefon:</span> {selectedOrder.phone}</p>
-                    <p><span className="text-muted-foreground">Manzil:</span> {selectedOrder.address}</p>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Buyurtma statusi</h4>
-                  <Badge className={statusConfig[selectedOrder.status].color + ' text-base px-3 py-1'}>
-                    {statusConfig[selectedOrder.status].label}
-                  </Badge>
-                </div>
-              </div>
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  Buyurtma #{selectedOrder.orderNumber || selectedOrder.id?.slice(-6)}
+                </DialogTitle>
+                <DialogDescription>
+                  {formatDate(selectedOrder.createdAt)}
+                </DialogDescription>
+              </DialogHeader>
 
-              <div>
-                <h4 className="font-semibold mb-2">Mahsulotlar</h4>
-                <div className="border rounded-lg divide-y">
-                  {selectedOrder.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3">
-                      <div>
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-muted-foreground ml-2">x{item.quantity}</span>
-                      </div>
-                      <span>{formatPrice(item.price)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-semibold">Jami:</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    {formatPrice(selectedOrder.total)}
+              <div className="space-y-4">
+                {/* Status */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Holati:</span>
+                  <span className={`text-sm px-3 py-1 rounded-full ${statusConfig[selectedOrder.status]?.color || ""}`}>
+                    {statusConfig[selectedOrder.status]?.label || selectedOrder.status}
                   </span>
                 </div>
+
+                <Separator />
+
+                {/* Customer Info */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Mijoz ma&apos;lumotlari</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      {selectedOrder.customerName || "Noma'lum"}
+                    </div>
+                    {selectedOrder.customerPhone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        {selectedOrder.customerPhone}
+                      </div>
+                    )}
+                    {selectedOrder.deliveryAddress && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        {selectedOrder.deliveryAddress}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Items */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Mahsulotlar</h4>
+                  {selectedOrder.items?.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="flex-1 truncate">{item.name || item.productName}</span>
+                      <span className="text-muted-foreground mx-2">x{item.quantity}</span>
+                      <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
+                    </div>
+                  )) || (
+                    <p className="text-sm text-muted-foreground">
+                      {selectedOrder.itemCount || 1} ta mahsulot
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Total */}
+                <div className="flex items-center justify-between font-bold">
+                  <span>Jami:</span>
+                  <span className="text-primary">{formatPrice(selectedOrder.total || 0)}</span>
+                </div>
               </div>
 
-              <div className="flex gap-2">
-                {statusConfig[selectedOrder.status].nextStatus && (
-                  <Button
-                    className="flex-1"
-                    onClick={() => {
-                      handleUpdateStatus(selectedOrder.id, statusConfig[selectedOrder.status].nextStatus!)
-                      setSelectedOrder(null)
-                    }}
-                  >
-                    {statusConfig[selectedOrder.status].nextLabel}
-                  </Button>
-                )}
-                {selectedOrder.status === 'pending' && (
+              <DialogFooter className="gap-2">
+                {selectedOrder.status === "pending" && (
                   <Button
                     variant="destructive"
-                    className="flex-1"
+                    className="rounded-full"
                     onClick={() => {
-                      setSelectedOrder(null)
-                      setCancelDialogOpen(true)
+                      updateStatusMutation.mutate({
+                        orderId: selectedOrder.id,
+                        status: "cancelled",
+                      });
+                      setSelectedOrder(null);
                     }}
                   >
+                    <XCircle className="mr-2 h-4 w-4" />
                     Bekor qilish
                   </Button>
                 )}
-                <Button variant="outline" className="flex-1">
-                  Chop etish
-                </Button>
-              </div>
-            </div>
+                {nextStatus[selectedOrder.status] && (
+                  <Button
+                    className="rounded-full"
+                    onClick={() => {
+                      updateStatusMutation.mutate({
+                        orderId: selectedOrder.id,
+                        status: nextStatus[selectedOrder.status],
+                      });
+                    }}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    {updateStatusMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {nextStatusLabel[selectedOrder.status]}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
           )}
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

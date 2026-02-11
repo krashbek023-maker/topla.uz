@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -14,288 +15,350 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Upload, X, Plus, Loader2, Save } from "lucide-react";
-
-const categories = [
-  { id: "1", name: "Elektronika", subcategories: ["Smartfonlar", "Noutbuklar", "Planshetlar", "Quloqchinlar", "Smart soatlar", "Televizorlar"] },
-  { id: "2", name: "Kiyim", subcategories: ["Erkaklar kiyimi", "Ayollar kiyimi", "Bolalar kiyimi", "Poyabzallar", "Aksessuarlar"] },
-  { id: "3", name: "Uy-ro'zg'or", subcategories: ["Oshxona jihozlari", "Mebel", "Yoritish", "Uy bezaklari"] },
-];
+import { motion } from "framer-motion";
+import { fadeInUp } from "@/lib/animations";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { vendorApi } from "@/lib/api/vendor";
+import { uploadApi } from "@/lib/api/upload";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Upload,
+  X,
+  Loader2,
+  ImageIcon,
+  Package,
+  DollarSign,
+  Info,
+  GripVertical,
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function NewProductPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("basic");
-  
-  // Basic info
-  const [nameUz, setNameUz] = useState("");
-  const [nameRu, setNameRu] = useState("");
-  const [descriptionUz, setDescriptionUz] = useState("");
-  const [descriptionRu, setDescriptionRu] = useState("");
-  
-  // Pricing
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [comparePrice, setComparePrice] = useState("");
+  const [originalPrice, setOriginalPrice] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [stock, setStock] = useState("");
   const [sku, setSku] = useState("");
-  
-  // Category
-  const [category, setCategory] = useState("");
-  const [subcategory, setSubcategory] = useState("");
-  
-  // Images
+  const [weight, setWeight] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [images, setImages] = useState<string[]>([]);
 
-  const selectedCategory = categories.find((c) => c.id === category);
+  // Fetch categories
+  const { data: categories } = useQuery({
+    queryKey: ["vendor-categories"],
+    queryFn: vendorApi.getCategories,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: vendorApi.createProduct,
+    onSuccess: () => {
+      toast.success("Mahsulot yaratildi!");
+      router.push("/vendor/products");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Xatolik yuz berdi");
+    },
+  });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const fileArray = Array.from(files);
+      const result = await uploadApi.uploadImages(fileArray);
+      setImages((prev) => [...prev, ...result.urls]);
+      toast.success(`${fileArray.length} ta rasm yuklandi`);
+    } catch (error: any) {
+      toast.error(error.message || "Rasm yuklashda xatolik");
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // TODO: Implement actual product creation
-    setTimeout(() => {
-      router.push("/vendor/products");
-    }, 2000);
+
+    if (!name.trim()) { toast.error("Mahsulot nomini kiriting"); return; }
+    if (!price || Number(price) <= 0) { toast.error("Narxni kiriting"); return; }
+    if (!categoryId) { toast.error("Kategoriyani tanlang"); return; }
+
+    createMutation.mutate({
+      name: name.trim(),
+      description: description.trim(),
+      price: Number(price),
+      compareAtPrice: originalPrice ? Number(originalPrice) : undefined,
+      categoryId,
+      stock: stock ? Number(stock) : 0,
+      sku: sku.trim() || undefined,
+      weight: weight ? Number(weight) : undefined,
+      isActive,
+      images,
+    });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="ghost" size="icon" className="rounded-full" asChild>
           <Link href="/vendor/products">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Yangi mahsulot</h2>
-          <p className="text-muted-foreground">Yangi mahsulot qo'shish</p>
+          <h1 className="text-2xl font-bold">Yangi mahsulot</h1>
+          <p className="text-muted-foreground">Mahsulot ma&apos;lumotlarini kiriting</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main Content */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Info - Left Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Asosiy ma'lumotlar</CardTitle>
-                <CardDescription>Mahsulot nomi va tavsifi</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="basic">O'zbekcha</TabsTrigger>
-                    <TabsTrigger value="russian">Ruscha</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="basic" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nameUz">Mahsulot nomi (O'zbekcha)</Label>
-                      <Input
-                        id="nameUz"
-                        placeholder="iPhone 15 Pro Max"
-                        value={nameUz}
-                        onChange={(e) => setNameUz(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="descriptionUz">Tavsif (O'zbekcha)</Label>
-                      <textarea
-                        id="descriptionUz"
-                        className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        placeholder="Mahsulot haqida batafsil ma'lumot..."
-                        value={descriptionUz}
-                        onChange={(e) => setDescriptionUz(e.target.value)}
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="russian" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nameRu">Mahsulot nomi (Ruscha)</Label>
-                      <Input
-                        id="nameRu"
-                        placeholder="iPhone 15 Pro Max"
-                        value={nameRu}
-                        onChange={(e) => setNameRu(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="descriptionRu">Tavsif (Ruscha)</Label>
-                      <textarea
-                        id="descriptionRu"
-                        className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        placeholder="Подробная информация о продукте..."
-                        value={descriptionRu}
-                        onChange={(e) => setDescriptionRu(e.target.value)}
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-
-            {/* Images */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Rasmlar</CardTitle>
-                <CardDescription>Mahsulot rasmlari (kamida 1 ta)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {images.map((image, i) => (
-                    <div key={i} className="relative aspect-square bg-muted rounded-lg">
-                      <img src={image} alt="" className="w-full h-full object-cover rounded-lg" />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-1 right-1 h-6 w-6"
-                        onClick={() => setImages(images.filter((_, index) => index !== i))}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  <div className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
-                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-xs text-muted-foreground text-center px-2">
-                      Rasm yuklash
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pricing */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Narx va ombor</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+            <motion.div {...fadeInUp}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="h-5 w-5 text-primary" />
+                    Asosiy ma&apos;lumotlar
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Narx (so'm)</Label>
+                    <Label htmlFor="name">Mahsulot nomi *</Label>
                     <Input
-                      id="price"
-                      type="number"
-                      placeholder="1000000"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
+                      id="name"
+                      placeholder="Masalan: Samsung Galaxy S24"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="comparePrice">Eski narx (ixtiyoriy)</Label>
-                    <Input
-                      id="comparePrice"
-                      type="number"
-                      placeholder="1200000"
-                      value={comparePrice}
-                      onChange={(e) => setComparePrice(e.target.value)}
+                    <Label htmlFor="description">Tavsif</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Mahsulot haqida batafsil..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={5}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="stock">Ombordagi miqdor</Label>
-                    <Input
-                      id="stock"
-                      type="number"
-                      placeholder="10"
-                      value={stock}
-                      onChange={(e) => setStock(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sku">SKU (ixtiyoriy)</Label>
-                    <Input
-                      id="sku"
-                      placeholder="IPHONE-15-PRO"
-                      value={sku}
-                      onChange={(e) => setSku(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Category */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Kategoriya</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Asosiy kategoriya</Label>
-                  <Select value={category} onValueChange={(val) => {
-                    setCategory(val);
-                    setSubcategory("");
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tanlang" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {selectedCategory && (
-                  <div className="space-y-2">
-                    <Label>Subkategoriya</Label>
-                    <Select value={subcategory} onValueChange={setSubcategory}>
+                    <Label>Kategoriya *</Label>
+                    <Select value={categoryId} onValueChange={setCategoryId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Tanlang" />
+                        <SelectValue placeholder="Kategoriya tanlang" />
                       </SelectTrigger>
                       <SelectContent>
-                        {selectedCategory.subcategories.map((sub) => (
-                          <SelectItem key={sub} value={sub}>
-                            {sub}
+                        {categories?.data?.map((cat: any) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.nameUz}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Images */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-primary" />
+                  Rasmlar
+                </CardTitle>
+                <CardDescription>
+                  Mahsulot rasmlarini yuklang (max 10 ta)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {images.map((url, index) => (
+                    <div key={index} className="relative aspect-square rounded-xl overflow-hidden border bg-muted group">
+                      <Image src={url} alt="" fill className="object-cover" />
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeImage(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      {index === 0 && (
+                        <div className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
+                          Asosiy
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {images.length < 10 && (
+                    <label className="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                      {isUploading ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                          <span className="text-xs text-muted-foreground">Yuklash</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageUpload}
+                        disabled={isUploading}
+                      />
+                    </label>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Price & Settings */}
+          <div className="space-y-6">
+            {/* Pricing */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  Narx
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Narx (so&apos;m) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    placeholder="0"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    required
+                    min={0}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="originalPrice">Eski narx (so&apos;m)</Label>
+                  <Input
+                    id="originalPrice"
+                    type="number"
+                    placeholder="Chegirma uchun"
+                    value={originalPrice}
+                    onChange={(e) => setOriginalPrice(e.target.value)}
+                    min={0}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Chegirma ko&apos;rsatish uchun eski narxni kiriting
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
-            {/* Actions */}
+            {/* Stock */}
             <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-3">
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saqlanmoqda...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Saqlash
-                      </>
-                    )}
-                  </Button>
-                  <Button type="button" variant="outline" className="w-full" asChild>
-                    <Link href="/vendor/products">Bekor qilish</Link>
-                  </Button>
+              <CardHeader>
+                <CardTitle className="text-lg">Ombor</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="stock">Miqdor</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    placeholder="0"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    min={0}
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground text-center mt-4">
-                  Mahsulot moderatsiyadan o'tgandan so'ng saytda paydo bo'ladi
-                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="sku">SKU (artikul)</Label>
+                  <Input
+                    id="sku"
+                    placeholder="Ixtiyoriy"
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="weight">Og&apos;irlik (gram)</Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    placeholder="0"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    min={0}
+                  />
+                </div>
               </CardContent>
             </Card>
+
+            {/* Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Sozlamalar</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Faol holat</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Mahsulot sotuvda ko&apos;rinadi
+                    </p>
+                  </div>
+                  <Switch checked={isActive} onCheckedChange={setIsActive} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Submit */}
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-full"
+                onClick={() => router.back()}
+              >
+                Bekor qilish
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 rounded-full"
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saqlanmoqda...
+                  </>
+                ) : (
+                  "Saqlash"
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </form>

@@ -1,246 +1,272 @@
-'use client'
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AreaChart, BarChart, DonutChart } from "@tremor/react";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { useQuery } from "@tanstack/react-query";
+import { vendorApi } from "@/lib/api/vendor";
+import { ShoppingCart, Package, DollarSign, BarChart3 } from "lucide-react";
 
-// Mock data
-const monthlyData = [
-  { month: 'Yan', revenue: 12500000, orders: 15 },
-  { month: 'Fev', revenue: 18700000, orders: 23 },
-  { month: 'Mar', revenue: 22300000, orders: 28 },
-  { month: 'Apr', revenue: 19800000, orders: 25 },
-  { month: 'May', revenue: 28500000, orders: 35 },
-  { month: 'Iyn', revenue: 32100000, orders: 42 },
-]
+function formatPrice(amount: number) {
+  return new Intl.NumberFormat("uz-UZ").format(amount);
+}
 
-const topProducts = [
-  { name: 'iPhone 15 Pro Max', sold: 45, revenue: 715500000 },
-  { name: 'Samsung Galaxy S24', sold: 38, revenue: 475000000 },
-  { name: 'MacBook Pro M3', sold: 12, revenue: 384000000 },
-  { name: 'AirPods Pro', sold: 65, revenue: 169000000 },
-  { name: 'iPad Pro 12.9', sold: 18, revenue: 324000000 },
-]
+export default function AnalyticsPage() {
+  const [period, setPeriod] = useState<"week" | "month" | "year">("week");
 
-const recentOrders = [
-  { id: 'ORD-156', customer: 'Abdulloh K.', amount: 15900000, date: 'Bugun' },
-  { id: 'ORD-155', customer: 'Malika R.', amount: 12500000, date: 'Bugun' },
-  { id: 'ORD-154', customer: 'Jasur T.', amount: 32000000, date: 'Kecha' },
-  { id: 'ORD-153', customer: 'Nodira A.', amount: 2600000, date: 'Kecha' },
-]
+  const { data: analytics, isLoading } = useQuery({
+    queryKey: ["vendor-analytics", period],
+    queryFn: () => vendorApi.getAnalytics(period),
+  });
 
-export default function VendorAnalyticsPage() {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' so\'m'
-  }
-
-  const totalRevenue = monthlyData.reduce((sum, m) => sum + m.revenue, 0)
-  const totalOrders = monthlyData.reduce((sum, m) => sum + m.orders, 0)
-  const avgOrderValue = totalRevenue / totalOrders
+  // Prepare chart data
+  const revenueData = analytics?.dailyRevenue || [];
+  const ordersData = analytics?.dailyRevenue || [];
+  const statusData = analytics?.ordersByStatus || [];
+  const topProducts = analytics?.topProducts || [];
+  const summary = analytics?.summary;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analitika</h1>
-          <p className="text-muted-foreground">
-            Do'koningiz statistikasi va tahlili
-          </p>
+          <h1 className="text-2xl font-bold">Statistika</h1>
+          <p className="text-muted-foreground">Savdo va mahsulot analitikasi</p>
         </div>
-        <Select defaultValue="6months">
-          <SelectTrigger className="w-40">
+        <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+          <SelectTrigger className="w-[160px]">
+            <BarChart3 className="mr-2 h-4 w-4" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="7days">Oxirgi 7 kun</SelectItem>
-            <SelectItem value="30days">Oxirgi 30 kun</SelectItem>
-            <SelectItem value="6months">Oxirgi 6 oy</SelectItem>
-            <SelectItem value="year">Bu yil</SelectItem>
+            <SelectItem value="week">Hafta</SelectItem>
+            <SelectItem value="month">Oy</SelectItem>
+            <SelectItem value="year">Yil</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Jami daromad</CardTitle>
-            <span className="text-2xl">💰</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(totalRevenue)}</div>
-            <p className="text-xs text-green-600">+12.5% o'tgan oydan</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Jami buyurtmalar</CardTitle>
-            <span className="text-2xl">📦</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-green-600">+8.2% o'tgan oydan</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">O'rtacha chek</CardTitle>
-            <span className="text-2xl">📊</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(avgOrderValue)}</div>
-            <p className="text-xs text-green-600">+3.1% o'tgan oydan</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Konversiya</CardTitle>
-            <span className="text-2xl">📈</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">4.2%</div>
-            <p className="text-xs text-red-600">-0.3% o'tgan oydan</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* KPI Cards */}
+      <motion.div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={staggerItem}>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Daromad</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-7 w-28" />
+              ) : (
+                <div className="text-xl font-bold">
+                  {formatPrice(summary?.totalRevenue || 0)} <span className="text-xs font-normal text-muted-foreground">so&apos;m</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+        <motion.div variants={staggerItem}>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Buyurtmalar</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-7 w-16" />
+              ) : (
+                <div className="text-xl font-bold">{summary?.totalOrders || 0}</div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={staggerItem}>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Komissiya</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-7 w-16" />
+              ) : (
+                <div className="text-xl font-bold">
+                  {formatPrice(summary?.totalCommission || 0)} <span className="text-xs font-normal text-muted-foreground">so&apos;m</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={staggerItem}>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">O&apos;rtacha chek</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-7 w-24" />
+              ) : (
+                <div className="text-xl font-bold">
+                  {formatPrice(summary?.averageOrderValue || 0)} <span className="text-xs font-normal text-muted-foreground">so&apos;m</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      {/* Charts */}
+      <div className="grid lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Daromad dinamikasi</CardTitle>
-            <CardDescription>Oylik daromad ko'rsatkichlari</CardDescription>
+            <CardTitle className="text-lg">Daromad</CardTitle>
+            <CardDescription>
+              {period === "week" ? "Haftalik" : period === "month" ? "Oylik" : "Yillik"} daromad grafigi
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {monthlyData.map((month) => (
-                <div key={month.month} className="flex items-center gap-4">
-                  <div className="w-12 text-sm font-medium">{month.month}</div>
-                  <div className="flex-1">
-                    <div className="h-8 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all"
-                        style={{ width: `${(month.revenue / 35000000) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="w-28 text-right text-sm font-medium">
-                    {formatPrice(month.revenue)}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {isLoading ? (
+              <Skeleton className="h-[250px] w-full" />
+            ) : revenueData.length > 0 ? (
+              <AreaChart
+                className="h-[250px]"
+                data={revenueData}
+                index="date"
+                categories={["revenue"]}
+                colors={["blue"]}
+                valueFormatter={(v) => formatPrice(v) + " so'm"}
+                showLegend={false}
+                showAnimation
+              />
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                Ma&apos;lumotlar yetarli emas
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Orders Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Buyurtmalar soni</CardTitle>
-            <CardDescription>Oylik buyurtmalar statistikasi</CardDescription>
+            <CardTitle className="text-lg">Buyurtmalar</CardTitle>
+            <CardDescription>
+              {period === "week" ? "Haftalik" : period === "month" ? "Oylik" : "Yillik"} buyurtmalar soni
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end justify-between h-48 gap-2">
-              {monthlyData.map((month) => (
-                <div key={month.month} className="flex-1 flex flex-col items-center">
-                  <div
-                    className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t-lg transition-all"
-                    style={{ height: `${(month.orders / 50) * 100}%` }}
-                  />
-                  <div className="mt-2 text-xs font-medium">{month.month}</div>
-                  <div className="text-xs text-muted-foreground">{month.orders}</div>
-                </div>
-              ))}
-            </div>
+            {isLoading ? (
+              <Skeleton className="h-[250px] w-full" />
+            ) : ordersData.length > 0 ? (
+              <BarChart
+                className="h-[250px]"
+                data={ordersData}
+                index="date"
+                categories={["orders"]}
+                colors={["violet"]}
+                showLegend={false}
+                showAnimation
+              />
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                Ma&apos;lumotlar yetarli emas
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Category Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Buyurtma holatlari</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[250px] w-full" />
+            ) : statusData.length > 0 ? (
+              <DonutChart
+                className="h-[250px]"
+                data={statusData}
+                index="status"
+                category="count"
+                variant="pie"
+                showAnimation
+              />
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                Ma&apos;lumotlar yetarli emas
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Top Products */}
         <Card>
           <CardHeader>
-            <CardTitle>Top mahsulotlar</CardTitle>
-            <CardDescription>Eng ko'p sotilgan mahsulotlar</CardDescription>
+            <CardTitle className="text-lg">Eng ko&apos;p sotilgan</CardTitle>
+            <CardDescription>Top mahsulotlar</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {topProducts.map((product, idx) => (
-                <div key={product.name} className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600">
-                    {idx + 1}
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="h-4 flex-1" />
+                    <Skeleton className="h-4 w-16" />
                   </div>
-                  <div className="flex-1">
-                    <div className="font-medium">{product.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {product.sold} ta sotildi
+                ))}
+              </div>
+            ) : topProducts.length > 0 ? (
+              <div className="space-y-3">
+                {topProducts.map((product: any, index: number) => (
+                  <div key={product.productId || index} className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-muted-foreground w-5">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {product.totalSold || 0} ta sotildi
+                      </p>
                     </div>
+                    <span className="text-sm font-semibold">{product.orderCount || 0}</span>
                   </div>
-                  <div className="text-right">
-                    <div className="font-medium">{formatPrice(product.revenue)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Orders */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Oxirgi buyurtmalar</CardTitle>
-            <CardDescription>So'nggi aktivlik</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="font-mono text-sm">{order.id}</div>
-                    <div className="text-sm text-muted-foreground">{order.customer}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium">{formatPrice(order.amount)}</div>
-                    <div className="text-xs text-muted-foreground">{order.date}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>Ma&apos;lumotlar yetarli emas</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Performance Metrics */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Samaradorlik ko'rsatkichlari</CardTitle>
-          <CardDescription>Do'kon reytingi va ko'rsatkichlari</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 md:grid-cols-4">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl mb-2">⭐</div>
-              <div className="text-2xl font-bold">4.8</div>
-              <div className="text-sm text-muted-foreground">O'rtacha reyting</div>
-              <div className="text-xs text-muted-foreground">(256 ta baho)</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl mb-2">🚚</div>
-              <div className="text-2xl font-bold">98%</div>
-              <div className="text-sm text-muted-foreground">Yetkazish vaqtida</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl mb-2">↩️</div>
-              <div className="text-2xl font-bold">2.1%</div>
-              <div className="text-sm text-muted-foreground">Qaytarilgan</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-3xl mb-2">💬</div>
-              <div className="text-2xl font-bold">15 min</div>
-              <div className="text-sm text-muted-foreground">O'rtacha javob vaqti</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
-  )
+  );
 }
